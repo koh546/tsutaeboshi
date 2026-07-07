@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伝え星（つたえぼし） - 生徒用</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: "Hiragino Sans", "Meiryo", sans-serif;
+        background: #0b1020;
+        color: white;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+    .card {
+        background: #111a33;
+        border-radius: 16px;
+        padding: 32px 28px;
+        max-width: 420px;
+        width: 100%;
+        text-align: center;
+    }
+    h1 {
+        margin: 0 0 8px 0;
+        font-size: 24px;
+        color: #ffe066;
+    }
+    .subtitle {
+        color: #9fb3ff;
+        margin-bottom: 24px;
+        font-size: 14px;
+    }
+    label {
+        display: block;
+        text-align: left;
+        margin-bottom: 6px;
+        color: #9fb3ff;
+        font-size: 14px;
+    }
+    .field {
+        margin-bottom: 18px;
+        text-align: left;
+    }
+    input[type="text"] {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: none;
+        background: #1c2a55;
+        color: white;
+        font-size: 18px;
+    }
+    button {
+        background: #2b4cff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 14px 24px;
+        font-size: 17px;
+        cursor: pointer;
+        width: 100%;
+    }
+    button:hover { background: #1a35cc; }
+    button:disabled { background: #3a4166; cursor: not-allowed; }
+
+    .error-box {
+        background: rgba(204, 51, 85, 0.15);
+        color: #ff8fa3;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 18px;
+        font-size: 14px;
+        display: none;
+    }
+
+    #waitingScreen { display: none; }
+    .waiting-name {
+        font-size: 20px;
+        color: #ffe066;
+        margin-bottom: 12px;
+    }
+    .waiting-message {
+        color: #9fb3ff;
+        font-size: 15px;
+        line-height: 1.7;
+    }
+    .spinner {
+        margin: 20px auto;
+        width: 36px;
+        height: 36px;
+        border: 4px solid #1c2a55;
+        border-top: 4px solid #ffe066;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    #loadingScreen {
+        color: #9fb3ff;
+        font-size: 15px;
+    }
+</style>
+</head>
+<body>
+
+<div class="card">
+
+    <!-- 読み込み中（セッション確認中）画面 -->
+    <div id="loadingScreen">
+        <h1>伝え星（つたえぼし）</h1>
+        <div class="subtitle">読み込み中…</div>
+    </div>
+
+    <!-- エラー画面（セッションIDが無効など） -->
+    <div id="errorScreen" style="display:none;">
+        <h1>伝え星（つたえぼし）</h1>
+        <div class="error-box" id="errorBox" style="display:block;"></div>
+    </div>
+
+    <!-- 名前入力画面 -->
+    <div id="joinScreen" style="display:none;">
+        <h1>伝え星（つたえぼし）</h1>
+        <div class="subtitle">QRコードを読み込んでくれてありがとう！<br>名前を入力して参加しよう</div>
+        <div class="field">
+            <label for="nameInput">なまえ</label>
+            <input type="text" id="nameInput" placeholder="やまだ たろう" maxlength="20">
+        </div>
+        <button id="joinBtn">参加する</button>
+    </div>
+
+    <!-- 参加後の待機画面 -->
+    <div id="waitingScreen">
+        <div class="waiting-name" id="waitingName"></div>
+        <div class="spinner"></div>
+        <div class="waiting-message">
+            参加できました！<br>
+            せんせいがゲームをスタートするまで、<br>
+            少し待っていてね。
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+    import {
+        getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+    // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト、teacher.htmlと同じ設定）
+    const firebaseConfig = {
+        apiKey: "AIzaSyDKVX2XQOarobvskKYgNiWn__cDZwni7gk",
+        authDomain: "tsutaeboshi.firebaseapp.com",
+        projectId: "tsutaeboshi",
+        storageBucket: "tsutaeboshi.firebasestorage.app",
+        messagingSenderId: "797492485045",
+        appId: "1:797492485045:web:1f8eca9ba07a2f0b2dd7fc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const loadingScreen = document.getElementById("loadingScreen");
+    const errorScreen = document.getElementById("errorScreen");
+    const errorBox = document.getElementById("errorBox");
+    const joinScreen = document.getElementById("joinScreen");
+    const waitingScreen = document.getElementById("waitingScreen");
+    const nameInput = document.getElementById("nameInput");
+    const joinBtn = document.getElementById("joinBtn");
+    const waitingName = document.getElementById("waitingName");
+
+    function showOnly(el){
+        [loadingScreen, errorScreen, joinScreen, waitingScreen].forEach(s => {
+            s.style.display = (s === el) ? "block" : "none";
+        });
+    }
+
+    function showError(message){
+        errorBox.textContent = message;
+        showOnly(errorScreen);
+    }
+
+    // URLの ?session=XXXXXX からセッションIDを取得
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session");
+
+    if(!sessionId){
+        showError("セッションIDが見つかりません。先生に表示してもらったQRコードから、もう一度読み込んでください。");
+    } else {
+        init(sessionId);
+    }
+
+    async function init(sessionId){
+        // すでにこの端末でこのセッションに参加済みなら、待機画面にそのまま戻す
+        const savedParticipantId = localStorage.getItem(`tsutaeboshi_participant_${sessionId}`);
+        const savedName = localStorage.getItem(`tsutaeboshi_name_${sessionId}`);
+        if(savedParticipantId && savedName){
+            waitingName.textContent = `${savedName} さん`;
+            showOnly(waitingScreen);
+            watchSessionStatus(sessionId);
+            return;
+        }
+
+        // セッションが実際に存在するか確認
+        try {
+            const sessionSnap = await getDoc(doc(db, "sessions", sessionId));
+            if(!sessionSnap.exists()){
+                showError("このセッションは見つかりませんでした。セッションIDが正しいか、先生に確認してください。");
+                return;
+            }
+            showOnly(joinScreen);
+        } catch(err){
+            console.error(err);
+            showError("通信エラーが発生しました。インターネット接続を確認して、もう一度開き直してください。");
+        }
+    }
+
+    joinBtn.addEventListener("click", async () => {
+        const name = nameInput.value.trim();
+        if(!name){
+            nameInput.focus();
+            return;
+        }
+        joinBtn.disabled = true;
+        joinBtn.textContent = "参加中…";
+
+        try {
+            const participantsRef = collection(db, "sessions", sessionId, "participants");
+            const docRef = await addDoc(participantsRef, {
+                name,
+                joinedAt: serverTimestamp(),
+                submitted: false,
+                theme: null,
+                piecesData: null,
+                empathyStars: 0
+            });
+
+            // 端末に参加情報を保存しておき、ページを再読み込みしても待機画面に戻れるようにする
+            localStorage.setItem(`tsutaeboshi_participant_${sessionId}`, docRef.id);
+            localStorage.setItem(`tsutaeboshi_name_${sessionId}`, name);
+
+            waitingName.textContent = `${name} さん`;
+            showOnly(waitingScreen);
+            watchSessionStatus(sessionId);
+        } catch(err){
+            console.error(err);
+            alert("参加登録に失敗しました。通信状況を確認してもう一度お試しください。");
+            joinBtn.disabled = false;
+            joinBtn.textContent = "参加する";
+        }
+    });
+
+    // セッションの状態（waiting → creating など）を見張っておく。
+    // ここでの表示切り替えは次のフェーズ（伝え星の制作画面組み込み）で実装予定。
+    function watchSessionStatus(sessionId){
+        onSnapshot(doc(db, "sessions", sessionId), (snap) => {
+            if(!snap.exists()) return;
+            const status = snap.data().status;
+            if(status === "creating"){
+                // TODO: 次のフェーズで、ここに伝え星の制作画面を表示する
+                console.log("ゲームが開始されました。制作画面への切り替えは次のフェーズで実装予定です。");
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
