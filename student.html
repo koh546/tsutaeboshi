@@ -2,15 +2,24 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>伝え星（つたえぼし） - 生徒用</title>
 <style>
-    * { box-sizing: border-box; }
-    body {
+    * {
+        box-sizing: border-box;
+        touch-action: manipulation;
+    }
+    html, body {
         margin: 0;
+        height: 100%;
         font-family: "Hiragino Sans", "Meiryo", sans-serif;
         background: #0b1020;
         color: white;
+        overscroll-behavior: none;
+    }
+
+    /* ===== 参加登録〜待機系の画面（カード形式） ===== */
+    #cardWrapper {
         min-height: 100vh;
         display: flex;
         align-items: center;
@@ -25,28 +34,28 @@
         width: 100%;
         text-align: center;
     }
-    h1 {
+    .card h1 {
         margin: 0 0 8px 0;
         font-size: 24px;
         color: #ffe066;
     }
-    .subtitle {
+    .card .subtitle {
         color: #9fb3ff;
         margin-bottom: 24px;
         font-size: 14px;
     }
-    label {
+    .card label {
         display: block;
         text-align: left;
         margin-bottom: 6px;
         color: #9fb3ff;
         font-size: 14px;
     }
-    .field {
+    .card .field {
         margin-bottom: 18px;
         text-align: left;
     }
-    input[type="text"] {
+    .card input[type="text"] {
         width: 100%;
         padding: 12px 14px;
         border-radius: 8px;
@@ -55,7 +64,7 @@
         color: white;
         font-size: 18px;
     }
-    button {
+    .card button {
         background: #2b4cff;
         color: white;
         border: none;
@@ -65,8 +74,8 @@
         cursor: pointer;
         width: 100%;
     }
-    button:hover { background: #1a35cc; }
-    button:disabled { background: #3a4166; cursor: not-allowed; }
+    .card button:hover { background: #1a35cc; }
+    .card button:disabled { background: #3a4166; cursor: not-allowed; }
 
     .error-box {
         background: rgba(204, 51, 85, 0.15);
@@ -78,7 +87,7 @@
         display: none;
     }
 
-    #waitingScreen { display: none; }
+    #waitingScreen, #themeScreen, #submittedScreen { display: none; }
     .waiting-name {
         font-size: 20px;
         color: #ffe066;
@@ -101,15 +110,175 @@
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
-
     #loadingScreen {
         color: #9fb3ff;
         font-size: 15px;
+    }
+
+    /* ===== 制作画面（伝え星プロトタイプを統合） ===== */
+    #creationScreen { display: none; }
+    #creationScreen #top {
+        padding: 10px;
+        background: #111a33;
+        font-size: 14px;
+    }
+    #creationScreen #canvas {
+        height: 78vh;
+        position: relative;
+        background: radial-gradient(circle at center, #0b1a3a, #050814);
+        overflow: hidden;
+        touch-action: none;
+    }
+    #creationScreen .piece {
+        position: absolute;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        font-size: 22px;
+        padding: 6px;
+        touch-action: none;
+        transform-origin: center center;
+    }
+    #creationScreen .piece-label {
+        display: inline-block;
+        transform-origin: center center;
+    }
+    #creationScreen .piece.selected .piece-label {
+        outline: 2px dashed #ffe066;
+        border-radius: 6px;
+        background: rgba(255, 224, 102, 0.15);
+        color: #ffe066 !important;
+    }
+    #creationScreen .rotate-handle, #creationScreen .delete-handle {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        touch-action: none;
+        opacity: 0;
+        pointer-events: none;
+    }
+    #creationScreen .rotate-handle {
+        background: #2b4cff;
+        cursor: ew-resize;
+    }
+    #creationScreen .delete-handle {
+        background: #cc3355;
+        cursor: pointer;
+    }
+    #creationScreen .piece.selected .rotate-handle,
+    #creationScreen .piece.selected .delete-handle {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    #creationScreen #toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        background: #111a33;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+    #creationScreen .tool {
+        flex: 0 0 auto;
+        padding: 10px 14px;
+        background: #1c2a55;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        font-size: 16px;
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    #creationScreen .tool.active {
+        background: #2b4cff;
+    }
+    #creationScreen .tool.toggle-on {
+        background: #cc7a00;
+    }
+    #creationScreen button {
+        flex: 0 0 auto;
+        padding: 12px 14px;
+        border: none;
+        border-radius: 6px;
+        background: #2b4cff;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        white-space: nowrap;
+        min-height: 44px;
+        width: auto;
+    }
+    #creationScreen button:active { background: #1a35cc; }
+    #creationScreen button:disabled { background: #3a4166; cursor: default; }
+    #creationScreen #candidateOverlay {
+        position: fixed;
+        inset: 0;
+        background: transparent;
+        z-index: 998;
+        display: none;
+    }
+    #creationScreen #candidatePopup {
+        position: fixed;
+        z-index: 999;
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 240px;
+        padding: 10px;
+        background: #111a33;
+        border: 1px solid #2b4cff;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    #creationScreen #candidateItems {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    #creationScreen #candidatePopup .candidate-label {
+        flex-basis: 100%;
+        font-size: 12px;
+        color: #9fb3ff;
+        margin-bottom: 2px;
+        cursor: move;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    #creationScreen .candidate-item {
+        background: #1c2a55;
+        border-radius: 6px;
+        padding: 8px 10px;
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        cursor: pointer;
+    }
+    #creationScreen .candidate-item:active {
+        background: #2b4cff;
+    }
+    #timerDisplay {
+        color: #ffe066;
+        font-weight: bold;
     }
 </style>
 </head>
 <body>
 
+<div id="cardWrapper">
 <div class="card">
 
     <!-- 読み込み中（セッション確認中）画面 -->
@@ -146,19 +315,54 @@
         </div>
     </div>
 
-    <!-- お題発表画面（制作画面は次のフェーズで実装予定） -->
-    <div id="themeScreen" style="display:none;">
+    <!-- お題発表画面 -->
+    <div id="themeScreen">
         <div class="subtitle">あなたのお題は……</div>
         <div class="waiting-name" id="themeText" style="font-size:32px;"></div>
-        <div class="waiting-message">まもなく制作画面がはじまります。</div>
+        <button id="startCreatingBtn">せいさくをはじめる ▶</button>
     </div>
 
+    <!-- 提出後の画面 -->
+    <div id="submittedScreen">
+        <h1>提出しました！</h1>
+        <div class="waiting-message">
+            おつかれさま！<br>
+            みんなが提出し終わったら、<br>
+            発表がはじまります。
+        </div>
+    </div>
+
+</div>
+</div>
+
+<!-- ===== 制作画面（伝え星） ===== -->
+<div id="creationScreen">
+<div id="top">
+お題：<span id="themeDisplay" style="font-size:1.3em;"></span> <ruby>座<rt>ざ</rt></ruby>　<button onclick="searchImage()" style="padding:6px 10px; font-size:13px; min-height:auto;">🔍 画像検索</button>　｜　<span id="pieceCountDisplay"></span>　｜　<span id="timerDisplay"></span>
+</div>
+<div id="canvas"></div>
+<div id="toolbar">
+<div class="tool" id="continuousToggle" onclick="toggleContinuousMode()">１つずつ配置モード</div>
+<div class="tool active" data-type="none" onclick="selectType('none', this)">✋ 配置しない</div>
+<div class="tool" data-type="star" onclick="selectType('star', this)">●</div>
+<div class="tool" data-type="short" onclick="selectType('short', this)">●──●</div>
+<div class="tool" data-type="mid" onclick="selectType('mid', this)">●────●</div>
+<div class="tool" data-type="long" onclick="selectType('long', this)">●────────●</div>
+<button id="undoBtn" onclick="undo()" disabled>↩️ 1つ戻る</button>
+<button onclick="deletePiece()">🗑 削除</button>
+<button onclick="send()">送信</button>
+</div>
+<div id="candidateOverlay"></div>
+<div id="candidatePopup">
+<div class="candidate-label">どのパーツを選びますか？（ドラッグで移動できます）</div>
+<div id="candidateItems"></div>
+</div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import {
-        getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp
+        getFirestore, doc, getDoc, updateDoc, collection, addDoc, onSnapshot, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト、teacher.htmlと同じ設定）
@@ -174,6 +378,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // ===== 画面要素 =====
+    const cardWrapper = document.getElementById("cardWrapper");
     const loadingScreen = document.getElementById("loadingScreen");
     const errorScreen = document.getElementById("errorScreen");
     const errorBox = document.getElementById("errorBox");
@@ -181,14 +387,19 @@
     const waitingScreen = document.getElementById("waitingScreen");
     const themeScreen = document.getElementById("themeScreen");
     const themeText = document.getElementById("themeText");
+    const submittedScreen = document.getElementById("submittedScreen");
+    const startCreatingBtn = document.getElementById("startCreatingBtn");
     const nameInput = document.getElementById("nameInput");
     const joinBtn = document.getElementById("joinBtn");
     const waitingName = document.getElementById("waitingName");
+    const creationScreenEl = document.getElementById("creationScreen");
 
     let myParticipantId = null;
+    let assignedTheme = null;
+    let themeScreenShown = false;
 
     function showOnly(el){
-        [loadingScreen, errorScreen, joinScreen, waitingScreen, themeScreen].forEach(s => {
+        [loadingScreen, errorScreen, joinScreen, waitingScreen, themeScreen, submittedScreen].forEach(s => {
             s.style.display = (s === el) ? "block" : "none";
         });
     }
@@ -216,7 +427,7 @@
             myParticipantId = savedParticipantId;
             waitingName.textContent = `${savedName} さん`;
             showOnly(waitingScreen);
-            watchSessionStatus(sessionId);
+            watchMyParticipant(sessionId);
             return;
         }
 
@@ -261,7 +472,7 @@
 
             waitingName.textContent = `${name} さん`;
             showOnly(waitingScreen);
-            watchSessionStatus(sessionId);
+            watchMyParticipant(sessionId);
         } catch(err){
             console.error(err);
             alert("参加登録に失敗しました。通信状況を確認してもう一度お試しください。");
@@ -270,22 +481,655 @@
         }
     });
 
-    // 自分の参加者ドキュメントを見張っておき、お題（theme）が届いたらお題発表画面に切り替える。
-    // 制作画面（前段で作った伝え星画面）への切り替えは次のフェーズで実装予定。
-    function watchSessionStatus(sessionId){
+    // 自分の参加者ドキュメントを見張っておき、お題（theme）が届いたらお題発表画面に、
+    // すでに提出済みなら提出後の画面に切り替える。
+    function watchMyParticipant(sessionId){
         if(!myParticipantId) return;
         onSnapshot(doc(db, "sessions", sessionId, "participants", myParticipantId), (snap) => {
             if(!snap.exists()) return;
             const data = snap.data();
-            if(data.theme){
+
+            if(data.submitted){
+                if(countdownInterval) clearInterval(countdownInterval);
+                creationScreenEl.style.display = "none";
+                document.body.classList.remove("creation-mode");
+                cardWrapper.style.display = "flex";
+                showOnly(submittedScreen);
+                return;
+            }
+
+            if(data.theme && !themeScreenShown){
+                themeScreenShown = true;
+                assignedTheme = data.theme;
                 themeText.textContent = data.theme;
                 showOnly(themeScreen);
-                // TODO: 次のフェーズで、ここに伝え星の制作画面（制限時間・パーツ数付き）を表示する
             }
         }, (err) => {
             console.error("参加者情報の監視に失敗:", err);
         });
     }
+
+    startCreatingBtn.addEventListener("click", async () => {
+        startCreatingBtn.disabled = true;
+        startCreatingBtn.textContent = "じゅんびちゅう…";
+        try {
+            const sessionSnap = await getDoc(doc(db, "sessions", sessionId));
+            const sdata = sessionSnap.data();
+            const maxPieces = sdata.maxPieces || 30;
+            const timeLimitSec = sdata.timeLimitSec || 600;
+            const startedAtMillis = sdata.startedAt ? sdata.startedAt.toMillis() : Date.now();
+            enterCreationScreen(assignedTheme, maxPieces, timeLimitSec, startedAtMillis);
+        } catch(err){
+            console.error(err);
+            alert("制作画面の準備に失敗しました。通信状況を確認してもう一度お試しください。");
+            startCreatingBtn.disabled = false;
+            startCreatingBtn.textContent = "せいさくをはじめる ▶";
+        }
+    });
+
+    function enterCreationScreen(theme, maxPieces, timeLimitSec, startedAtMillis){
+        TOTAL_PIECES = maxPieces;
+        document.getElementById("themeDisplay").textContent = theme;
+        cardWrapper.style.display = "none";
+        document.body.classList.add("creation-mode");
+        creationScreenEl.style.display = "block";
+        updatePieceCountDisplay();
+        startCountdownTimer(timeLimitSec, startedAtMillis);
+    }
+
+    // ===== 以下、伝え星の制作画面ロジック（プロトタイプを統合） =====
+    let selectedType = 'none';
+    let selected = null;
+    let rotateHandleDragging = false;
+    let pieceDragMoved = false;
+    let historyStack = [];
+    const canvas = document.getElementById("canvas");
+    const undoBtn = document.getElementById("undoBtn");
+    const candidateOverlay = document.getElementById("candidateOverlay");
+    const candidatePopup = document.getElementById("candidatePopup");
+    const candidateItems = document.getElementById("candidateItems");
+
+    let TOTAL_PIECES = 30; // セッション設定から上書きされる
+    const pieceCountDisplay = document.getElementById("pieceCountDisplay");
+
+    function updatePieceCountDisplay(){
+        const placed = canvas.querySelectorAll('.piece').length;
+        const remaining = TOTAL_PIECES - placed;
+        pieceCountDisplay.textContent = `配置済パーツ数${placed}本／残り配置可能パーツ数${remaining}本`;
+        pieceCountDisplay.style.color = remaining < 0 ? '#ff4d4d' : '';
+    }
+
+    const PIECE_COLORS = ['#ff6b6b', '#4dd0e1', '#81c784', '#ba68c8', '#ffb74d', '#64b5f6', '#f06292', '#aed581'];
+    let pieceColorIndex = 0;
+    function nextPieceColor(){
+        const color = PIECE_COLORS[pieceColorIndex % PIECE_COLORS.length];
+        pieceColorIndex++;
+        return color;
+    }
+
+    function getPiecesAtPoint(x, y){
+        const els = document.elementsFromPoint(x, y);
+        const pieces = [];
+        const seen = new Set();
+        for(const el of els){
+            const p = el.closest && el.closest('.piece');
+            if(p && canvas.contains(p) && !seen.has(p)){
+                seen.add(p);
+                pieces.push(p);
+            }
+        }
+        return pieces;
+    }
+
+    let activeCandidatePieces = [];
+
+    function hideCandidatePopup(){
+        candidatePopup.style.display = 'none';
+        candidateOverlay.style.display = 'none';
+        candidateItems.innerHTML = '';
+        activeCandidatePieces.forEach(p => {
+            const label = p.querySelector('.piece-label');
+            if(label) label.style.color = '';
+        });
+        activeCandidatePieces = [];
+    }
+
+    function showPieceCandidatePopup(pieces, x, y){
+        setSelected(null);
+        candidateItems.innerHTML = '';
+        activeCandidatePieces = pieces.slice();
+
+        pieces.forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'candidate-item';
+            const angle = parseFloat(p.dataset.angle) || 0;
+            const color = p.dataset.color || '#ffffff';
+            item.style.boxShadow = `inset 0 -4px 0 ${color}`;
+
+            const text = labelFor(p.dataset.pieceType);
+            const { w: labelW, h: labelH } = measureCandidateLabelSize(text);
+            const rad = angle * Math.PI / 180;
+            const rotatedW = Math.abs(labelW * Math.cos(rad)) + Math.abs(labelH * Math.sin(rad));
+            const rotatedH = Math.abs(labelW * Math.sin(rad)) + Math.abs(labelH * Math.cos(rad));
+            const CANDIDATE_PADDING = 20;
+            item.style.width = Math.max(44, Math.ceil(rotatedW) + CANDIDATE_PADDING) + 'px';
+            item.style.height = Math.max(44, Math.ceil(rotatedH) + CANDIDATE_PADDING) + 'px';
+
+            const inner = document.createElement('span');
+            inner.innerText = text;
+            inner.style.display = 'inline-block';
+            inner.style.transform = `rotate(${angle}deg)`;
+            inner.style.color = color;
+            item.appendChild(inner);
+
+            const canvasLabel = p.querySelector('.piece-label');
+            if(canvasLabel) canvasLabel.style.color = color;
+
+            function choose(ev){
+                ev.stopPropagation();
+                ev.preventDefault();
+                hideCandidatePopup();
+                canvas.appendChild(p);
+                setSelected(p);
+            }
+            item.addEventListener('click', choose);
+            item.addEventListener('touchend', choose, { passive: false });
+            candidateItems.appendChild(item);
+        });
+
+        candidatePopup.style.display = 'flex';
+        candidateOverlay.style.display = 'block';
+
+        const rect = candidatePopup.getBoundingClientRect();
+        let left = x + 30;
+        let top = y - rect.height - 40;
+        left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8));
+        top = Math.max(8, Math.min(top, window.innerHeight - rect.height - 8));
+        candidatePopup.style.left = left + 'px';
+        candidatePopup.style.top = top + 'px';
+    }
+
+    candidateOverlay.addEventListener('click', hideCandidatePopup);
+    candidateOverlay.addEventListener('touchend', function(e){ e.preventDefault(); hideCandidatePopup(); }, { passive: false });
+
+    (function attachCandidatePopupDrag(){
+        const handle = candidatePopup.querySelector('.candidate-label');
+        let dragging = false;
+        let offsetX = 0, offsetY = 0;
+
+        function pointFromEvent(e){
+            if(e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function start(e){
+            e.stopPropagation();
+            e.preventDefault();
+            dragging = true;
+            const p = pointFromEvent(e);
+            const rect = candidatePopup.getBoundingClientRect();
+            offsetX = p.x - rect.left;
+            offsetY = p.y - rect.top;
+        }
+
+        function move(e){
+            if(!dragging) return;
+            e.preventDefault();
+            const p = pointFromEvent(e);
+            const rect = candidatePopup.getBoundingClientRect();
+            let left = p.x - offsetX;
+            let top = p.y - offsetY;
+            left = Math.max(4, Math.min(left, window.innerWidth - rect.width - 4));
+            top = Math.max(4, Math.min(top, window.innerHeight - rect.height - 4));
+            candidatePopup.style.left = left + 'px';
+            candidatePopup.style.top = top + 'px';
+        }
+
+        function end(){
+            dragging = false;
+        }
+
+        handle.addEventListener('mousedown', start);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', end);
+        handle.addEventListener('touchstart', start, { passive: false });
+        document.addEventListener('touchmove', move, { passive: false });
+        document.addEventListener('touchend', end);
+    })();
+
+    function selectType(type, el){
+        selectedType = type;
+        document.querySelectorAll('.tool[data-type]').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    let continuousMode = false;
+
+    function toggleContinuousMode(){
+        continuousMode = !continuousMode;
+        const btn = document.getElementById('continuousToggle');
+        if(continuousMode){
+            btn.textContent = '連続配置モード';
+            btn.classList.add('toggle-on');
+        } else {
+            btn.textContent = '１つずつ配置モード';
+            btn.classList.remove('toggle-on');
+        }
+    }
+
+    function labelFor(type){
+        if(type === 'star') return "●";
+        if(type === 'short') return "●──●";
+        if(type === 'mid') return "●────●";
+        if(type === 'long') return "●────────●";
+    }
+
+    function setSelected(piece){
+        if(selected) selected.classList.remove('selected');
+        selected = piece;
+        if(selected) selected.classList.add('selected');
+    }
+
+    function measureReferenceR(){
+        const temp = document.createElement('div');
+        temp.className = 'piece';
+        temp.style.position = 'absolute';
+        temp.style.visibility = 'hidden';
+        temp.style.left = '-9999px';
+        temp.style.top = '-9999px';
+        const label = document.createElement('span');
+        label.className = 'piece-label';
+        label.innerText = labelFor('short');
+        temp.appendChild(label);
+        document.body.appendChild(temp);
+        const w = temp.offsetWidth;
+        const h = temp.offsetHeight;
+        document.body.removeChild(temp);
+        return Math.max(w, h) / 2 + 2;
+    }
+    const HANDLE_DISTANCE = measureReferenceR();
+
+    function measureCandidateLabelSize(text){
+        const temp = document.createElement('span');
+        temp.style.position = 'absolute';
+        temp.style.visibility = 'hidden';
+        temp.style.left = '-9999px';
+        temp.style.top = '-9999px';
+        temp.style.display = 'inline-block';
+        temp.style.fontSize = '18px';
+        temp.style.whiteSpace = 'nowrap';
+        temp.innerText = text;
+        document.body.appendChild(temp);
+        const w = temp.offsetWidth;
+        const h = temp.offsetHeight;
+        document.body.removeChild(temp);
+        return { w, h };
+    }
+
+    function updateHandlePosition(piece){
+        const angle = parseFloat(piece.dataset.angle);
+        const rad = angle * Math.PI / 180;
+        const R = HANDLE_DISTANCE;
+        const handle = piece.querySelector('.rotate-handle');
+        const trash = piece.querySelector('.delete-handle');
+
+        const handleRad = rad - Math.PI / 2;
+        const hx = R * Math.cos(handleRad);
+        const hy = R * Math.sin(handleRad);
+        handle.style.left = `calc(50% + ${hx}px)`;
+        handle.style.top = `calc(50% + ${hy}px)`;
+        handle.style.transform = "translate(-50%, -50%)";
+
+        const trashRad = handleRad + Math.PI;
+        const tx = R * Math.cos(trashRad);
+        const ty = R * Math.sin(trashRad);
+        trash.style.left = `calc(50% + ${tx}px)`;
+        trash.style.top = `calc(50% + ${ty}px)`;
+        trash.style.transform = "translate(-50%, -50%)";
+    }
+
+    function snapshotState(){
+        return Array.from(canvas.querySelectorAll('.piece')).map(p => ({
+            type: p.dataset.pieceType,
+            x: parseFloat(p.style.left),
+            y: parseFloat(p.style.top),
+            angle: parseFloat(p.dataset.angle),
+            color: p.dataset.color
+        }));
+    }
+
+    function pushHistory(){
+        historyStack.push(snapshotState());
+        if(historyStack.length > 50) historyStack.shift();
+        undoBtn.disabled = false;
+    }
+
+    function undo(){
+        if(historyStack.length === 0) return;
+        const prev = historyStack.pop();
+        canvas.querySelectorAll('.piece').forEach(p => p.remove());
+        selected = null;
+        prev.forEach(item => buildPiece(item.type, item.x, item.y, item.angle, item.color));
+        undoBtn.disabled = historyStack.length === 0;
+        updatePieceCountDisplay();
+    }
+
+    function buildPiece(type, x, y, angle, color){
+        color = color || '#ffffff';
+        const piece = document.createElement("div");
+        piece.className = "piece";
+        piece.dataset.pieceType = type;
+        piece.dataset.color = color;
+        piece.style.left = x + "px";
+        piece.style.top = y + "px";
+        piece.dataset.angle = angle;
+
+        const label = document.createElement("span");
+        label.className = "piece-label";
+        label.innerText = labelFor(type);
+        label.style.transform = `rotate(${angle}deg)`;
+        piece.appendChild(label);
+
+        const handle = document.createElement("div");
+        handle.className = "rotate-handle";
+        const handleIcon = document.createElement("span");
+        handleIcon.className = "handle-icon";
+        handleIcon.innerText = "🔄";
+        handle.appendChild(handleIcon);
+        piece.appendChild(handle);
+
+        const trash = document.createElement("div");
+        trash.className = "delete-handle";
+        trash.innerText = "🗑";
+        piece.appendChild(trash);
+
+        attachPieceEvents(piece);
+        attachRotateHandle(handle, piece);
+        attachDeleteHandle(trash, piece);
+        canvas.appendChild(piece);
+        updateHandlePosition(piece);
+        return piece;
+    }
+
+    function createPiece(x, y){
+        pushHistory();
+        const piece = buildPiece(selectedType, x, y, 0, nextPieceColor());
+        let left = x - piece.offsetWidth / 2;
+        let top = y - piece.offsetHeight / 2;
+        left = Math.max(0, Math.min(left, canvas.clientWidth - piece.offsetWidth));
+        top = Math.max(0, Math.min(top, canvas.clientHeight - piece.offsetHeight));
+        piece.style.left = left + "px";
+        piece.style.top = top + "px";
+        updateHandlePosition(piece);
+        setSelected(piece);
+        updatePieceCountDisplay();
+        return piece;
+    }
+
+    function attachRotateHandle(handle, piece){
+        let dragging = false;
+        let startX = 0;
+        let startAngle = 0;
+        let preDragSnapshot = null;
+        let historyPushed = false;
+        const degreesPerPixel = 0.7;
+
+        function pointX(e){
+            if(e.touches && e.touches.length > 0) return e.touches[0].clientX;
+            return e.clientX;
+        }
+
+        function applyAngle(angle){
+            angle = ((angle % 360) + 360) % 360;
+            piece.dataset.angle = angle;
+            piece.querySelector('.piece-label').style.transform = `rotate(${angle}deg)`;
+            updateHandlePosition(piece);
+        }
+
+        function start(e){
+            e.stopPropagation();
+            e.preventDefault();
+            dragging = true;
+            rotateHandleDragging = true;
+            historyPushed = false;
+            preDragSnapshot = snapshotState();
+            startX = pointX(e);
+            startAngle = parseFloat(piece.dataset.angle);
+            setSelected(piece);
+        }
+
+        function move(e){
+            if(!dragging) return;
+            e.preventDefault();
+            if(!historyPushed){
+                historyStack.push(preDragSnapshot);
+                undoBtn.disabled = false;
+                historyPushed = true;
+            }
+            const dx = pointX(e) - startX;
+            applyAngle(startAngle + dx * degreesPerPixel);
+        }
+
+        function end(e){
+            if(!dragging) return;
+            dragging = false;
+            e.stopPropagation();
+            e.preventDefault();
+            setTimeout(() => { rotateHandleDragging = false; }, 50);
+        }
+
+        handle.addEventListener("mousedown", start);
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", end);
+
+        handle.addEventListener("touchstart", start, { passive: false });
+        document.addEventListener("touchmove", move, { passive: false });
+        handle.addEventListener("touchend", end, { passive: false });
+        document.addEventListener("touchend", end);
+    }
+
+    function attachDeleteHandle(trash, piece){
+        function onDelete(e){
+            e.stopPropagation();
+            e.preventDefault();
+            pushHistory();
+            if(selected === piece) selected = null;
+            piece.remove();
+            updatePieceCountDisplay();
+        }
+        trash.addEventListener("mousedown", e => e.stopPropagation());
+        trash.addEventListener("click", onDelete);
+        trash.addEventListener("touchend", onDelete, { passive: false });
+    }
+
+    function attachPieceEvents(piece){
+        let dragging = false;
+        let moved = false;
+        let offsetX = 0, offsetY = 0;
+        let preDragSnapshot = null;
+        let historyPushed = false;
+
+        function pointFromEvent(e){
+            if(e.touches && e.touches.length > 0){
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function start(e){
+            e.stopPropagation();
+            const p = pointFromEvent(e);
+
+            if(selectedType === 'none' && piece !== selected){
+                const candidates = getPiecesAtPoint(p.x, p.y);
+                if(candidates.length > 1){
+                    showPieceCandidatePopup(candidates, p.x, p.y);
+                    return;
+                }
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            dragging = true;
+            moved = false;
+            historyPushed = false;
+            preDragSnapshot = snapshotState();
+            offsetX = p.x - rect.left - piece.offsetLeft;
+            offsetY = p.y - rect.top - piece.offsetTop;
+            setSelected(piece);
+        }
+
+        function move(e){
+            if(!dragging) return;
+            e.preventDefault();
+            if(!historyPushed){
+                historyStack.push(preDragSnapshot);
+                undoBtn.disabled = false;
+                historyPushed = true;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const p = pointFromEvent(e);
+            let nx = p.x - rect.left - offsetX;
+            let ny = p.y - rect.top - offsetY;
+            nx = Math.max(0, Math.min(nx, rect.width - piece.offsetWidth));
+            ny = Math.max(0, Math.min(ny, rect.height - piece.offsetHeight));
+            piece.style.left = nx + "px";
+            piece.style.top = ny + "px";
+            moved = true;
+            pieceDragMoved = true;
+        }
+
+        function end(){
+            dragging = false;
+            if(moved){
+                setTimeout(() => { pieceDragMoved = false; }, 50);
+            }
+        }
+
+        piece.addEventListener("mousedown", start);
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", end);
+
+        piece.addEventListener("touchstart", start, { passive: true });
+        document.addEventListener("touchmove", move, { passive: false });
+        document.addEventListener("touchend", end);
+    }
+
+    function handleCanvasPlace(e){
+        if(e.target !== canvas && selectedType === 'none') return;
+        if(rotateHandleDragging) return;
+        if(pieceDragMoved) return;
+        if(selectedType === 'none'){
+            deselect();
+            return;
+        }
+        if(e.target !== canvas){
+            const hitPiece = e.target.closest('.piece');
+            if(hitPiece) setSelected(null);
+        }
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        if(e.changedTouches && e.changedTouches.length > 0){
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        createPiece(x, y);
+
+        if(!continuousMode){
+            selectedType = 'none';
+            document.querySelectorAll('.tool[data-type]').forEach(t => t.classList.remove('active'));
+            document.querySelector('.tool[data-type="none"]').classList.add('active');
+        }
+    }
+
+    canvas.addEventListener("click", handleCanvasPlace);
+    canvas.addEventListener("touchend", function(e){
+        e.preventDefault();
+        handleCanvasPlace(e);
+    });
+
+    function deselect(){
+        setSelected(null);
+    }
+
+    function deletePiece(){
+        if(selected){
+            pushHistory();
+            selected.remove();
+            selected = null;
+            updatePieceCountDisplay();
+        }
+    }
+
+    function searchImage(){
+        const theme = assignedTheme || "";
+        window.open("https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(theme), "_blank");
+    }
+
+    // ===== 制限時間のカウントダウン =====
+    let countdownInterval = null;
+    function startCountdownTimer(timeLimitSec, startedAtMillis){
+        const timerEl = document.getElementById('timerDisplay');
+        function tick(){
+            const elapsed = (Date.now() - startedAtMillis) / 1000;
+            const remaining = Math.max(0, Math.round(timeLimitSec - elapsed));
+            const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+            const ss = String(remaining % 60).padStart(2, '0');
+            timerEl.textContent = `残り時間 ${mm}:${ss}`;
+            if(remaining <= 0){
+                clearInterval(countdownInterval);
+                timerEl.style.color = '#ff4d4d';
+                submitConstellation(true);
+            }
+        }
+        tick();
+        countdownInterval = setInterval(tick, 1000);
+    }
+
+    // ===== 提出 =====
+    let alreadySubmitted = false;
+    async function submitConstellation(isAutoSubmit){
+        if(alreadySubmitted) return;
+        if(!isAutoSubmit){
+            const ok = confirm("この状態で提出します。あとから変更できませんが、よろしいですか？");
+            if(!ok) return;
+        }
+        alreadySubmitted = true;
+        if(countdownInterval) clearInterval(countdownInterval);
+
+        const piecesData = snapshotState();
+        try {
+            await updateDoc(doc(db, "sessions", sessionId, "participants", myParticipantId), {
+                piecesData,
+                submitted: true,
+                submittedAt: serverTimestamp()
+            });
+            creationScreenEl.style.display = "none";
+            document.body.classList.remove("creation-mode");
+            cardWrapper.style.display = "flex";
+            showOnly(submittedScreen);
+        } catch(err){
+            console.error(err);
+            alert("送信に失敗しました。通信状況を確認してもう一度お試しください。");
+            alreadySubmitted = false;
+        }
+    }
+
+    function send(){
+        submitConstellation(false);
+    }
+
+    // インラインonclickから呼べるよう、必要な関数をwindowに公開する
+    window.toggleContinuousMode = toggleContinuousMode;
+    window.selectType = selectType;
+    window.undo = undo;
+    window.deletePiece = deletePiece;
+    window.send = send;
+    window.searchImage = searchImage;
 </script>
 
 </body>
