@@ -40,7 +40,7 @@
     .field {
         margin-bottom: 16px;
     }
-    input[type="text"], input[type="number"] {
+    input[type="text"], input[type="number"], select {
         width: 100%;
         padding: 10px 12px;
         border-radius: 8px;
@@ -111,6 +111,17 @@
         color: #6a76a8;
         font-size: 14px;
     }
+    #progressList li {
+        background: #1c2a55;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        font-size: 15px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .status-submitted { color: #6bffb0; }
+    .status-pending { color: #ffb066; }
 </style>
 </head>
 <body>
@@ -121,8 +132,12 @@
 <!-- セッション作成フォーム -->
 <div class="panel" id="setupPanel">
     <div class="field">
-        <label for="genreInput">ジャンル（例：動物）</label>
-        <input type="text" id="genreInput" placeholder="動物" value="動物">
+        <label for="genreInput">ジャンル</label>
+        <select id="genreInput">
+            <option value="動物">動物</option>
+            <option value="食べ物">食べ物</option>
+            <option value="乗り物">乗り物</option>
+        </select>
     </div>
     <div class="field">
         <label for="timeLimitInput">制限時間（分）</label>
@@ -149,14 +164,21 @@
             </div>
             <ul id="participantList"></ul>
             <div class="empty-note" id="emptyNote">まだ誰も参加していません</div>
+            <button id="startGameBtn" style="margin-top:16px;" disabled>ゲームスタート</button>
         </div>
     </div>
+</div>
+
+<!-- ゲーム進行中（お題配布後）の表示 -->
+<div class="panel" id="progressPanel" style="display:none;">
+    <div class="subtitle" style="margin-bottom:12px;">ゲーム進行中：生徒は伝え星を制作しています</div>
+    <ul id="progressList" style="list-style:none; padding:0; margin:0;"></ul>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import {
-        getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp
+        getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp, writeBatch
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト）
@@ -172,12 +194,25 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // ジャンルごとのお題候補（今後、必要に応じて追加・編集可能）
+    const GENRE_THEMES = {
+        "動物": ["ライオン", "ペンギン", "クマ", "キリン", "ゾウ", "パンダ", "サル", "ウサギ", "カメ", "イルカ", "キツネ", "コアラ", "カバ", "トラ", "シマウマ"],
+        "食べ物": ["リンゴ", "バナナ", "ドーナツ", "ハンバーガー", "ソフトクリーム", "おにぎり", "ラーメン", "ピザ", "いちご", "すいか", "たこ焼き", "カレー", "プリン", "パン", "すし"],
+        "乗り物": ["電車", "ひこうき", "車", "船", "ロケット", "バス", "自転車", "ヘリコプター", "消防車", "救急車", "タクシー", "気球", "バイク", "新幹線", "パトカー"]
+    };
+
     const setupPanel = document.getElementById("setupPanel");
     const sessionPanel = document.getElementById("sessionPanel");
+    const progressPanel = document.getElementById("progressPanel");
+    const progressList = document.getElementById("progressList");
     const createSessionBtn = document.getElementById("createSessionBtn");
+    const startGameBtn = document.getElementById("startGameBtn");
     const participantList = document.getElementById("participantList");
     const participantCount = document.getElementById("participantCount");
     const emptyNote = document.getElementById("emptyNote");
+
+    let currentSessionId = null;
+    let currentParticipants = []; // { id, name, submitted, ... } の配列。ゲームスタート時のお題割り当てに使う。
 
     // セッションIDをランダムな英数字6文字で生成する（QRコードやURLに使う短い識別子）
     function generateSessionId(){
@@ -190,10 +225,11 @@
     }
 
     createSessionBtn.addEventListener("click", async () => {
-        const genre = document.getElementById("genreInput").value.trim() || "動物";
+        const genre = document.getElementById("genreInput").value;
         const timeLimitMin = parseFloat(document.getElementById("timeLimitInput").value) || 10;
         const maxPieces = parseInt(document.getElementById("maxPiecesInput").value) || 30;
         const sessionId = generateSessionId();
+        currentSessionId = sessionId;
 
         createSessionBtn.disabled = true;
         createSessionBtn.textContent = "作成中…";
@@ -201,6 +237,7 @@
         try {
             await setDoc(doc(db, "sessions", sessionId), {
                 genre,
+                themeList: GENRE_THEMES[genre] || [],
                 timeLimitSec: Math.round(timeLimitMin * 60),
                 maxPieces,
                 status: "waiting", // waiting → creating → presenting の順に進む予定
@@ -242,14 +279,83 @@
             participantList.innerHTML = "";
             participantCount.textContent = snapshot.size;
             emptyNote.style.display = snapshot.size === 0 ? "block" : "none";
+            currentParticipants = [];
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
+                currentParticipants.push({ id: docSnap.id, ...data });
                 const li = document.createElement("li");
                 li.textContent = data.name || "（名前未設定）";
                 participantList.appendChild(li);
             });
+            startGameBtn.disabled = currentParticipants.length === 0;
+            renderProgressList();
         }, (err) => {
             console.error("参加者一覧の取得に失敗:", err);
+        });
+    }
+
+    // 配列をランダムな順序に並べ替える（Fisher-Yatesシャッフル）
+    function shuffle(array){
+        const arr = [...array];
+        for(let i = arr.length - 1; i > 0; i--){
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    startGameBtn.addEventListener("click", async () => {
+        if(currentParticipants.length === 0 || !currentSessionId) return;
+        startGameBtn.disabled = true;
+        startGameBtn.textContent = "開始中…";
+
+        try {
+            // お題候補をシャッフルし、参加者数分に足りない場合はさらにシャッフルして繰り返し使う
+            const sessionSnapForThemes = GENRE_THEMES[document.getElementById("genreInput").value] || [];
+            let themePool = shuffle(sessionSnapForThemes);
+            const assignments = currentParticipants.map((p, i) => {
+                if(i > 0 && i % themePool.length === 0){
+                    themePool = shuffle(sessionSnapForThemes); // 一周したら再シャッフルして続ける
+                }
+                return { participantId: p.id, theme: themePool[i % themePool.length] };
+            });
+
+            const batch = writeBatch(db);
+            assignments.forEach(a => {
+                const pRef = doc(db, "sessions", currentSessionId, "participants", a.participantId);
+                batch.update(pRef, { theme: a.theme });
+            });
+            const sessionRef = doc(db, "sessions", currentSessionId);
+            batch.update(sessionRef, { status: "creating", startedAt: serverTimestamp() });
+            await batch.commit();
+
+            sessionPanel.style.display = "none";
+            progressPanel.style.display = "block";
+        } catch(err){
+            console.error(err);
+            alert("ゲームの開始に失敗しました。通信状況を確認してもう一度お試しください。");
+            startGameBtn.disabled = false;
+            startGameBtn.textContent = "ゲームスタート";
+        }
+    });
+
+    function renderProgressList(){
+        progressList.innerHTML = "";
+        currentParticipants.forEach(p => {
+            const li = document.createElement("li");
+            const nameSpan = document.createElement("span");
+            nameSpan.textContent = p.name || "（名前未設定）";
+            const statusSpan = document.createElement("span");
+            if(p.submitted){
+                statusSpan.textContent = "提出済み";
+                statusSpan.className = "status-submitted";
+            } else {
+                statusSpan.textContent = "未提出";
+                statusSpan.className = "status-pending";
+            }
+            li.appendChild(nameSpan);
+            li.appendChild(statusSpan);
+            progressList.appendChild(li);
         });
     }
 </script>

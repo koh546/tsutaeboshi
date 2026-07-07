@@ -146,6 +146,13 @@
         </div>
     </div>
 
+    <!-- お題発表画面（制作画面は次のフェーズで実装予定） -->
+    <div id="themeScreen" style="display:none;">
+        <div class="subtitle">あなたのお題は……</div>
+        <div class="waiting-name" id="themeText" style="font-size:32px;"></div>
+        <div class="waiting-message">まもなく制作画面がはじまります。</div>
+    </div>
+
 </div>
 
 <script type="module">
@@ -172,12 +179,16 @@
     const errorBox = document.getElementById("errorBox");
     const joinScreen = document.getElementById("joinScreen");
     const waitingScreen = document.getElementById("waitingScreen");
+    const themeScreen = document.getElementById("themeScreen");
+    const themeText = document.getElementById("themeText");
     const nameInput = document.getElementById("nameInput");
     const joinBtn = document.getElementById("joinBtn");
     const waitingName = document.getElementById("waitingName");
 
+    let myParticipantId = null;
+
     function showOnly(el){
-        [loadingScreen, errorScreen, joinScreen, waitingScreen].forEach(s => {
+        [loadingScreen, errorScreen, joinScreen, waitingScreen, themeScreen].forEach(s => {
             s.style.display = (s === el) ? "block" : "none";
         });
     }
@@ -202,6 +213,7 @@
         const savedParticipantId = localStorage.getItem(`tsutaeboshi_participant_${sessionId}`);
         const savedName = localStorage.getItem(`tsutaeboshi_name_${sessionId}`);
         if(savedParticipantId && savedName){
+            myParticipantId = savedParticipantId;
             waitingName.textContent = `${savedName} さん`;
             showOnly(waitingScreen);
             watchSessionStatus(sessionId);
@@ -245,6 +257,7 @@
             // 端末に参加情報を保存しておき、ページを再読み込みしても待機画面に戻れるようにする
             localStorage.setItem(`tsutaeboshi_participant_${sessionId}`, docRef.id);
             localStorage.setItem(`tsutaeboshi_name_${sessionId}`, name);
+            myParticipantId = docRef.id;
 
             waitingName.textContent = `${name} さん`;
             showOnly(waitingScreen);
@@ -257,16 +270,20 @@
         }
     });
 
-    // セッションの状態（waiting → creating など）を見張っておく。
-    // ここでの表示切り替えは次のフェーズ（伝え星の制作画面組み込み）で実装予定。
+    // 自分の参加者ドキュメントを見張っておき、お題（theme）が届いたらお題発表画面に切り替える。
+    // 制作画面（前段で作った伝え星画面）への切り替えは次のフェーズで実装予定。
     function watchSessionStatus(sessionId){
-        onSnapshot(doc(db, "sessions", sessionId), (snap) => {
+        if(!myParticipantId) return;
+        onSnapshot(doc(db, "sessions", sessionId, "participants", myParticipantId), (snap) => {
             if(!snap.exists()) return;
-            const status = snap.data().status;
-            if(status === "creating"){
-                // TODO: 次のフェーズで、ここに伝え星の制作画面を表示する
-                console.log("ゲームが開始されました。制作画面への切り替えは次のフェーズで実装予定です。");
+            const data = snap.data();
+            if(data.theme){
+                themeText.textContent = data.theme;
+                showOnly(themeScreen);
+                // TODO: 次のフェーズで、ここに伝え星の制作画面（制限時間・パーツ数付き）を表示する
             }
+        }, (err) => {
+            console.error("参加者情報の監視に失敗:", err);
         });
     }
 </script>
