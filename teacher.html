@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伝え星（つたえぼし） - 教員用</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: "Hiragino Sans", "Meiryo", sans-serif;
+        background: #0b1020;
+        color: white;
+        min-height: 100vh;
+        padding: 24px;
+    }
+    h1 {
+        margin: 0 0 4px 0;
+        font-size: 28px;
+        color: #ffe066;
+    }
+    .subtitle {
+        color: #9fb3ff;
+        margin-bottom: 24px;
+    }
+    .panel {
+        background: #111a33;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        max-width: 640px;
+    }
+    label {
+        display: block;
+        margin-bottom: 6px;
+        color: #9fb3ff;
+        font-size: 14px;
+    }
+    .field {
+        margin-bottom: 16px;
+    }
+    input[type="text"], input[type="number"] {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: none;
+        background: #1c2a55;
+        color: white;
+        font-size: 16px;
+    }
+    button {
+        background: #2b4cff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    button:hover { background: #1a35cc; }
+    button:disabled { background: #3a4166; cursor: not-allowed; }
+
+    #sessionPanel { display: none; }
+    .session-info {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    #qrcode {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        display: inline-block;
+    }
+    .join-url {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #9fb3ff;
+        word-break: break-all;
+        max-width: 260px;
+    }
+    .session-id {
+        font-size: 14px;
+        color: #9fb3ff;
+    }
+    .session-id b {
+        color: #ffe066;
+        font-size: 20px;
+        letter-spacing: 2px;
+    }
+    #participantList {
+        list-style: none;
+        padding: 0;
+        margin: 12px 0 0 0;
+        min-width: 220px;
+    }
+    #participantList li {
+        background: #1c2a55;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        font-size: 15px;
+    }
+    #participantCount {
+        color: #ffe066;
+        font-weight: bold;
+    }
+    .empty-note {
+        color: #6a76a8;
+        font-size: 14px;
+    }
+</style>
+</head>
+<body>
+
+<h1>伝え星（つたえぼし）</h1>
+<div class="subtitle">教員用画面</div>
+
+<!-- セッション作成フォーム -->
+<div class="panel" id="setupPanel">
+    <div class="field">
+        <label for="genreInput">ジャンル（例：動物）</label>
+        <input type="text" id="genreInput" placeholder="動物" value="動物">
+    </div>
+    <div class="field">
+        <label for="timeLimitInput">制限時間（分）</label>
+        <input type="number" id="timeLimitInput" value="10" min="1">
+    </div>
+    <div class="field">
+        <label for="maxPiecesInput">制限パーツ数（本）</label>
+        <input type="number" id="maxPiecesInput" value="30" min="1">
+    </div>
+    <button id="createSessionBtn">セッションを作成する</button>
+</div>
+
+<!-- セッション作成後の表示 -->
+<div class="panel" id="sessionPanel">
+    <div class="session-info">
+        <div>
+            <div id="qrcode"></div>
+            <div class="join-url" id="joinUrlText"></div>
+        </div>
+        <div>
+            <div class="session-id">セッションID：<b id="sessionIdText"></b></div>
+            <div style="margin-top:16px;">
+                参加者：<span id="participantCount">0</span>人
+            </div>
+            <ul id="participantList"></ul>
+            <div class="empty-note" id="emptyNote">まだ誰も参加していません</div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+    import {
+        getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+    // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト）
+    const firebaseConfig = {
+        apiKey: "AIzaSyDKVX2XQOarobvskKYgNiWn__cDZwni7gk",
+        authDomain: "tsutaeboshi.firebaseapp.com",
+        projectId: "tsutaeboshi",
+        storageBucket: "tsutaeboshi.firebasestorage.app",
+        messagingSenderId: "797492485045",
+        appId: "1:797492485045:web:1f8eca9ba07a2f0b2dd7fc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const setupPanel = document.getElementById("setupPanel");
+    const sessionPanel = document.getElementById("sessionPanel");
+    const createSessionBtn = document.getElementById("createSessionBtn");
+    const participantList = document.getElementById("participantList");
+    const participantCount = document.getElementById("participantCount");
+    const emptyNote = document.getElementById("emptyNote");
+
+    // セッションIDをランダムな英数字6文字で生成する（QRコードやURLに使う短い識別子）
+    function generateSessionId(){
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 紛らわしい文字(0,O,1,I)は除外
+        let id = "";
+        for(let i = 0; i < 6; i++){
+            id += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return id;
+    }
+
+    createSessionBtn.addEventListener("click", async () => {
+        const genre = document.getElementById("genreInput").value.trim() || "動物";
+        const timeLimitMin = parseFloat(document.getElementById("timeLimitInput").value) || 10;
+        const maxPieces = parseInt(document.getElementById("maxPiecesInput").value) || 30;
+        const sessionId = generateSessionId();
+
+        createSessionBtn.disabled = true;
+        createSessionBtn.textContent = "作成中…";
+
+        try {
+            await setDoc(doc(db, "sessions", sessionId), {
+                genre,
+                timeLimitSec: Math.round(timeLimitMin * 60),
+                maxPieces,
+                status: "waiting", // waiting → creating → presenting の順に進む予定
+                createdAt: serverTimestamp()
+            });
+
+            showSessionPanel(sessionId);
+            listenParticipants(sessionId);
+        } catch(err){
+            console.error(err);
+            alert("セッションの作成に失敗しました。通信状況を確認してもう一度お試しください。");
+            createSessionBtn.disabled = false;
+            createSessionBtn.textContent = "セッションを作成する";
+        }
+    });
+
+    function showSessionPanel(sessionId){
+        setupPanel.style.display = "none";
+        sessionPanel.style.display = "block";
+        document.getElementById("sessionIdText").textContent = sessionId;
+
+        // student.html は teacher.html と同じ場所に置く想定。
+        // 今開いているteacher.htmlのURLから、同じ階層のstudent.htmlのURLを組み立てる。
+        const studentUrl = new URL("student.html", window.location.href);
+        studentUrl.searchParams.set("session", sessionId);
+
+        document.getElementById("joinUrlText").textContent = studentUrl.href;
+
+        new QRCode(document.getElementById("qrcode"), {
+            text: studentUrl.href,
+            width: 200,
+            height: 200
+        });
+    }
+
+    function listenParticipants(sessionId){
+        const participantsRef = collection(db, "sessions", sessionId, "participants");
+        onSnapshot(participantsRef, (snapshot) => {
+            participantList.innerHTML = "";
+            participantCount.textContent = snapshot.size;
+            emptyNote.style.display = snapshot.size === 0 ? "block" : "none";
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const li = document.createElement("li");
+                li.textContent = data.name || "（名前未設定）";
+                participantList.appendChild(li);
+            });
+        }, (err) => {
+            console.error("参加者一覧の取得に失敗:", err);
+        });
+    }
+</script>
+
+</body>
+</html>
