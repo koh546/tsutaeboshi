@@ -1105,6 +1105,8 @@
         try {
             await updateDoc(doc(db, "sessions", sessionId, "participants", myParticipantId), {
                 piecesData,
+                canvasWidth: canvas.clientWidth,
+                canvasHeight: canvas.clientHeight,
                 submitted: true,
                 submittedAt: serverTimestamp()
             });

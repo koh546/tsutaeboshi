@@ -122,6 +122,65 @@
     }
     .status-submitted { color: #6bffb0; }
     .status-pending { color: #ffb066; }
+
+    #startPresentBtn { margin-top: 16px; display: none; }
+
+    #presentPanel {
+        display: none;
+        max-width: 900px;
+    }
+    .present-progress {
+        color: #9fb3ff;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+    #constellationView {
+        position: relative;
+        height: 55vh;
+        background: radial-gradient(circle at center, #0b1a3a, #050814);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 16px;
+    }
+    #constellationView .piece {
+        position: absolute;
+        color: white;
+        font-size: 22px;
+        text-shadow: 0 0 6px rgba(255,255,255,0.7);
+        transform-origin: center center;
+        white-space: nowrap;
+    }
+    .present-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    .hint-answer-box {
+        background: #1c2a55;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        min-height: 24px;
+        font-size: 18px;
+    }
+    #hintText { color: #ffe066; }
+    #answerText { color: #6bffb0; font-weight: bold; }
+    #empathyBtn {
+        background: #cc7a00;
+    }
+    #empathyBtn:hover { background: #a86400; }
+    .empathy-count {
+        color: #ffe066;
+        font-weight: bold;
+        font-size: 18px;
+        margin-left: 8px;
+    }
+    #presentFinished {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
 </style>
 </head>
 <body>
@@ -173,12 +232,33 @@
 <div class="panel" id="progressPanel" style="display:none;">
     <div class="subtitle" style="margin-bottom:12px;">ゲーム進行中：生徒は伝え星を制作しています</div>
     <ul id="progressList" style="list-style:none; padding:0; margin:0;"></ul>
+    <button id="startPresentBtn">「伝え星」スタート</button>
+</div>
+
+<!-- 発表フェーズ -->
+<div class="panel" id="presentPanel">
+    <div class="present-progress" id="presentProgress"></div>
+    <div id="constellationView"></div>
+    <div class="hint-answer-box" id="hintAnswerBox" style="display:none;">
+        <span id="hintText"></span>
+        <span id="answerText"></span>
+    </div>
+    <div class="present-controls">
+        <button id="hintBtn">💡 ヒント（1文字目）</button>
+        <button id="answerBtn">✅ こたえを見る</button>
+        <button id="empathyBtn">⭐ 共感スター<span class="empathy-count" id="empathyCount">0</span></button>
+        <button id="nextBtn">次の星座へ ▶</button>
+    </div>
+</div>
+<div class="panel" id="presentFinished">
+    <h2 style="color:#ffe066;">全員の発表が終わりました！</h2>
+    <p class="subtitle">おつかれさまでした。</p>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import {
-        getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp, writeBatch
+        getFirestore, doc, setDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, increment
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト）
@@ -205,6 +285,19 @@
     const sessionPanel = document.getElementById("sessionPanel");
     const progressPanel = document.getElementById("progressPanel");
     const progressList = document.getElementById("progressList");
+    const startPresentBtn = document.getElementById("startPresentBtn");
+    const presentPanel = document.getElementById("presentPanel");
+    const presentFinished = document.getElementById("presentFinished");
+    const presentProgress = document.getElementById("presentProgress");
+    const constellationView = document.getElementById("constellationView");
+    const hintAnswerBox = document.getElementById("hintAnswerBox");
+    const hintText = document.getElementById("hintText");
+    const answerText = document.getElementById("answerText");
+    const hintBtn = document.getElementById("hintBtn");
+    const answerBtn = document.getElementById("answerBtn");
+    const empathyBtn = document.getElementById("empathyBtn");
+    const empathyCount = document.getElementById("empathyCount");
+    const nextBtn = document.getElementById("nextBtn");
     const createSessionBtn = document.getElementById("createSessionBtn");
     const startGameBtn = document.getElementById("startGameBtn");
     const participantList = document.getElementById("participantList");
@@ -357,7 +450,101 @@
             li.appendChild(statusSpan);
             progressList.appendChild(li);
         });
+
+        const allSubmitted = currentParticipants.length > 0 && currentParticipants.every(p => p.submitted);
+        startPresentBtn.style.display = allSubmitted ? "inline-block" : "none";
     }
+
+    // ===== 発表フェーズ =====
+    let presentationQueue = [];
+    let presentationIndex = 0;
+    let currentPresentedParticipant = null;
+
+    startPresentBtn.addEventListener("click", () => {
+        presentationQueue = shuffle(currentParticipants);
+        presentationIndex = 0;
+        progressPanel.style.display = "none";
+        presentPanel.style.display = "block";
+        presentFinished.style.display = "none";
+        showNextConstellation();
+    });
+
+    function showNextConstellation(){
+        if(presentationIndex >= presentationQueue.length){
+            presentPanel.style.display = "none";
+            presentFinished.style.display = "block";
+            return;
+        }
+        currentPresentedParticipant = presentationQueue[presentationIndex];
+        presentationIndex++;
+
+        presentProgress.textContent = `${presentationIndex} / ${presentationQueue.length} 人目`;
+        hintAnswerBox.style.display = "none";
+        hintText.textContent = "";
+        answerText.textContent = "";
+        empathyCount.textContent = currentPresentedParticipant.empathyStars || 0;
+
+        renderConstellation(currentPresentedParticipant);
+    }
+
+    // 参加者の提出データ（piecesData・canvasWidth/Height）を、教員画面のビュー枠に縮尺を合わせて描画する
+    function renderConstellation(participant){
+        constellationView.innerHTML = "";
+        const pieces = participant.piecesData || [];
+        const srcW = participant.canvasWidth || 375;
+        const srcH = participant.canvasHeight || 600;
+        const rect = constellationView.getBoundingClientRect();
+        const scale = Math.min(rect.width / srcW, rect.height / srcH);
+        const offsetX = (rect.width - srcW * scale) / 2;
+        const offsetY = (rect.height - srcH * scale) / 2;
+
+        pieces.forEach(p => {
+            const span = document.createElement("div");
+            span.className = "piece";
+            span.textContent = labelForPresent(p.type);
+            span.style.left = (offsetX + p.x * scale) + "px";
+            span.style.top = (offsetY + p.y * scale) + "px";
+            span.style.fontSize = (22 * scale) + "px";
+            span.style.transform = `rotate(${p.angle}deg)`;
+            constellationView.appendChild(span);
+        });
+    }
+
+    function labelForPresent(type){
+        if(type === 'star') return "●";
+        if(type === 'short') return "●──●";
+        if(type === 'mid') return "●────●";
+        if(type === 'long') return "●────────●";
+        return "";
+    }
+
+    hintBtn.addEventListener("click", () => {
+        if(!currentPresentedParticipant) return;
+        const theme = currentPresentedParticipant.theme || "";
+        hintText.textContent = `ヒント：「${theme.charAt(0)}」からはじまるよ`;
+        hintAnswerBox.style.display = "block";
+    });
+
+    answerBtn.addEventListener("click", () => {
+        if(!currentPresentedParticipant) return;
+        answerText.textContent = `こたえ：${currentPresentedParticipant.name}さんの「${currentPresentedParticipant.theme}座」でした！`;
+        hintAnswerBox.style.display = "block";
+    });
+
+    empathyBtn.addEventListener("click", async () => {
+        if(!currentPresentedParticipant || !currentSessionId) return;
+        // 表示上先に反映してから、Firestoreへも加算しておく
+        const newCount = (parseInt(empathyCount.textContent) || 0) + 1;
+        empathyCount.textContent = newCount;
+        try {
+            const pRef = doc(db, "sessions", currentSessionId, "participants", currentPresentedParticipant.id);
+            await updateDoc(pRef, { empathyStars: increment(1) });
+        } catch(err){
+            console.error("共感スターの加算に失敗:", err);
+        }
+    });
+
+    nextBtn.addEventListener("click", showNextConstellation);
 </script>
 
 </body>
