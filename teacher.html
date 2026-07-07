@@ -259,6 +259,7 @@
 <div class="panel" id="presentFinished">
     <h2 style="color:#ffe066;">全員の発表が終わりました！</h2>
     <p class="subtitle">おつかれさまでした。</p>
+    <p id="totalEmpathyMessage" style="font-size:20px; color:#ffe066; font-weight:bold; margin-top:16px;"></p>
 </div>
 
 <script type="module">
@@ -515,10 +516,12 @@
     let presentationQueue = [];
     let presentationIndex = 0;
     let currentPresentedParticipant = null;
+    let totalEmpathyStars = 0; // 星座ごとにリセットせず、発表フェーズ全体で累積していく共感スターの合計
 
     startPresentBtn.addEventListener("click", () => {
         presentationQueue = shuffle(currentParticipants);
         presentationIndex = 0;
+        totalEmpathyStars = 0;
         progressPanel.style.display = "none";
         presentPanel.style.display = "block";
         presentFinished.style.display = "none";
@@ -529,6 +532,8 @@
         if(presentationIndex >= presentationQueue.length){
             presentPanel.style.display = "none";
             presentFinished.style.display = "block";
+            document.getElementById("totalEmpathyMessage").textContent =
+                `共感スターが${totalEmpathyStars}個集まりました。すごい！`;
             return;
         }
         currentPresentedParticipant = presentationQueue[presentationIndex];
@@ -538,7 +543,7 @@
         hintAnswerBox.style.display = "none";
         hintText.textContent = "";
         answerText.textContent = "";
-        empathyCount.textContent = currentPresentedParticipant.empathyStars || 0;
+        empathyCount.textContent = totalEmpathyStars; // 星座が変わってもリセットせず、これまでの合計を表示し続ける
 
         renderConstellation(currentPresentedParticipant);
     }
@@ -589,9 +594,9 @@
 
     empathyBtn.addEventListener("click", async () => {
         if(!currentPresentedParticipant || !currentSessionId) return;
-        // 表示上先に反映してから、Firestoreへも加算しておく
-        const newCount = (parseInt(empathyCount.textContent) || 0) + 1;
-        empathyCount.textContent = newCount;
+        // 表示上先に反映してから、Firestoreへも加算しておく（記録用に参加者ごとの内訳も残す）
+        totalEmpathyStars++;
+        empathyCount.textContent = totalEmpathyStars;
         try {
             const pRef = doc(db, "sessions", currentSessionId, "participants", currentPresentedParticipant.id);
             await updateDoc(pRef, { empathyStars: increment(1) });

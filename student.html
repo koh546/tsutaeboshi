@@ -274,6 +274,45 @@
         color: #ffe066;
         font-weight: bold;
     }
+    #creationScreen #timeUpOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    #creationScreen #timeUpPopup {
+        background: #111a33;
+        border: 1px solid #2b4cff;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 300px;
+        width: 80%;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+    #creationScreen #timeUpPopup p {
+        font-size: 16px;
+        margin: 0 0 20px 0;
+        color: white;
+        line-height: 1.5;
+    }
+    #creationScreen #timeUpPopup .timeup-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    #creationScreen #timeUpPopup button {
+        width: 100%;
+    }
+    #creationScreen #timeUpPopup #waitOneMinBtn {
+        background: #3a4166;
+    }
+    #creationScreen #timeUpPopup #waitOneMinBtn:hover {
+        background: #2c3150;
+    }
 </style>
 </head>
 <body>
@@ -356,6 +395,15 @@
 <div id="candidatePopup">
 <div class="candidate-label">どのパーツを選びますか？（ドラッグで移動できます）</div>
 <div id="candidateItems"></div>
+</div>
+<div id="timeUpOverlay">
+<div id="timeUpPopup">
+<p>時間が来ました。<br>このまま提出して良いですか？</p>
+<div class="timeup-buttons">
+<button id="submitNowBtn">はい</button>
+<button id="waitOneMinBtn">あと１分待って</button>
+</div>
+</div>
 </div>
 </div>
 
@@ -1072,22 +1120,46 @@
 
     // ===== 制限時間のカウントダウン =====
     let countdownInterval = null;
+    let extraSeconds = 0; // 「あと１分待って」で延長した秒数の合計
+    const timeUpOverlay = document.getElementById('timeUpOverlay');
+    const submitNowBtn = document.getElementById('submitNowBtn');
+    const waitOneMinBtn = document.getElementById('waitOneMinBtn');
+
     function startCountdownTimer(timeLimitSec, startedAtMillis){
         const timerEl = document.getElementById('timerDisplay');
+        extraSeconds = 0;
+
         function tick(){
             const elapsed = (Date.now() - startedAtMillis) / 1000;
-            const remaining = Math.max(0, Math.round(timeLimitSec - elapsed));
+            const remaining = Math.max(0, Math.round(timeLimitSec + extraSeconds - elapsed));
             const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
             const ss = String(remaining % 60).padStart(2, '0');
             timerEl.textContent = `残り時間 ${mm}:${ss}`;
             if(remaining <= 0){
                 clearInterval(countdownInterval);
                 timerEl.style.color = '#ff4d4d';
-                submitConstellation(true);
+                showTimeUpConfirm();
             }
         }
         tick();
         countdownInterval = setInterval(tick, 1000);
+
+        submitNowBtn.onclick = () => {
+            timeUpOverlay.style.display = "none";
+            submitConstellation(true);
+        };
+        waitOneMinBtn.onclick = () => {
+            timeUpOverlay.style.display = "none";
+            extraSeconds += 60;
+            timerEl.style.color = '#ffe066';
+            tick();
+            countdownInterval = setInterval(tick, 1000);
+        };
+    }
+
+    function showTimeUpConfirm(){
+        if(alreadySubmitted) return;
+        timeUpOverlay.style.display = "flex";
     }
 
     // ===== 提出 =====
@@ -1100,6 +1172,7 @@
         }
         alreadySubmitted = true;
         if(countdownInterval) clearInterval(countdownInterval);
+        timeUpOverlay.style.display = "none";
 
         const piecesData = snapshotState();
         try {
