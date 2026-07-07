@@ -410,7 +410,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import {
-        getFirestore, doc, getDoc, updateDoc, collection, addDoc, onSnapshot, serverTimestamp
+        getFirestore, doc, getDoc, updateDoc, collection, addDoc, onSnapshot, serverTimestamp, increment
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト、teacher.htmlと同じ設定）
@@ -793,7 +793,7 @@
         const w = temp.offsetWidth;
         const h = temp.offsetHeight;
         document.body.removeChild(temp);
-        return Math.max(w, h) / 2 + 2;
+        return Math.max(w, h) / 2 + 26;
     }
     const HANDLE_DISTANCE = measureReferenceR();
 
@@ -1154,6 +1154,10 @@
             timerEl.style.color = '#ffe066';
             tick();
             countdownInterval = setInterval(tick, 1000);
+            // 教員画面の「残り時間」表示にも反映されるよう、セッション全体の制限時間も延長しておく
+            updateDoc(doc(db, "sessions", sessionId), {
+                timeLimitSec: increment(60)
+            }).catch(err => console.error("制限時間の延長の反映に失敗:", err));
         };
     }
 
