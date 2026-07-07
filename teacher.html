@@ -224,6 +224,9 @@
             <ul id="participantList"></ul>
             <div class="empty-note" id="emptyNote">まだ誰も参加していません</div>
             <button id="startGameBtn" style="margin-top:16px;" disabled>ゲームスタート</button>
+            <div style="margin-top:14px;">
+                <a href="#" id="resetSessionLink" style="color:#6a76a8; font-size:13px;">別の新しいセッションを作る</a>
+            </div>
         </div>
     </div>
 </div>
@@ -233,6 +236,9 @@
     <div class="subtitle" style="margin-bottom:12px;">ゲーム進行中：生徒は伝え星を制作しています</div>
     <ul id="progressList" style="list-style:none; padding:0; margin:0;"></ul>
     <button id="startPresentBtn">「伝え星」スタート</button>
+    <div style="margin-top:14px;">
+        <a href="#" id="resetSessionLink2" style="color:#6a76a8; font-size:13px;">別の新しいセッションを作る</a>
+    </div>
 </div>
 
 <!-- 発表フェーズ -->
@@ -258,7 +264,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import {
-        getFirestore, doc, setDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, increment
+        getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, increment
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト）
@@ -307,6 +313,10 @@
     let currentSessionId = null;
     let currentParticipants = []; // { id, name, submitted, ... } の配列。ゲームスタート時のお題割り当てに使う。
 
+    // 教員画面のタブがChromebook等でリロード（バックグラウンドで自動破棄→復帰時に再読み込み等）
+    // されてしまった場合に、進行中のセッションへ自動復帰するためのキー
+    const TEACHER_SESSION_KEY = "tsutaeboshi_teacher_session";
+
     // セッションIDをランダムな英数字6文字で生成する（QRコードやURLに使う短い識別子）
     function generateSessionId(){
         const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 紛らわしい文字(0,O,1,I)は除外
@@ -336,6 +346,9 @@
                 status: "waiting", // waiting → creating → presenting の順に進む予定
                 createdAt: serverTimestamp()
             });
+
+            // 教員側のタブがChromebook等でリロードされても復帰できるよう、セッションIDを保存しておく
+            localStorage.setItem(TEACHER_SESSION_KEY, sessionId);
 
             showSessionPanel(sessionId);
             listenParticipants(sessionId);
@@ -386,6 +399,49 @@
             console.error("参加者一覧の取得に失敗:", err);
         });
     }
+
+    // ページ読み込み時に、進行中のセッションがあれば自動的に復帰する
+    async function resumeSessionIfAny(){
+        const savedSessionId = localStorage.getItem(TEACHER_SESSION_KEY);
+        if(!savedSessionId) return;
+
+        try {
+            const sessionSnap = await getDoc(doc(db, "sessions", savedSessionId));
+            if(!sessionSnap.exists()){
+                // セッションが存在しない（削除済み等）場合は保存情報を破棄して最初の画面のまま
+                localStorage.removeItem(TEACHER_SESSION_KEY);
+                return;
+            }
+
+            currentSessionId = savedSessionId;
+            const sessionData = sessionSnap.data();
+
+            showSessionPanel(savedSessionId);
+
+            // status に応じて表示するパネルを合わせる
+            // waiting: 参加者待ち画面のまま／creating・presenting: 進行中パネルへ
+            if(sessionData.status && sessionData.status !== "waiting"){
+                sessionPanel.style.display = "none";
+                progressPanel.style.display = "block";
+            }
+
+            // 参加者リスナーを再接続すると、現在の提出状況に応じて
+            // 「伝え星」スタートボタン等も自動的に正しい表示状態になる
+            listenParticipants(savedSessionId);
+        } catch(err){
+            console.error("セッションの復帰に失敗:", err);
+        }
+    }
+    resumeSessionIfAny();
+
+    function resetToNewSession(e){
+        e.preventDefault();
+        if(!confirm("現在のセッションから離れて、新しいセッションを作成しますか？\n（すでに進行中の場合、生徒側の画面はそのまま残ります）")) return;
+        localStorage.removeItem(TEACHER_SESSION_KEY);
+        location.reload();
+    }
+    document.getElementById("resetSessionLink").addEventListener("click", resetToNewSession);
+    document.getElementById("resetSessionLink2").addEventListener("click", resetToNewSession);
 
     // 配列をランダムな順序に並べ替える（Fisher-Yatesシャッフル）
     function shuffle(array){
