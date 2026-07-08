@@ -170,41 +170,130 @@
         min-height: 24px;
         font-size: 18px;
     }
-    #hintText { color: #ffe066; margin-bottom: 6px; }
-    #hintText:empty { margin-bottom: 0; }
     #answerText { color: #6bffb0; font-weight: bold; }
-    .choice-hint-item {
+    .za-suffix { font-size: 0.82em; }
+    ruby rt {
+        font-size: 0.55em;
+        color: #cdd7ff;
+    }
+
+    /* 星のかけらゲージ */
+    .star-gauge {
+        color: #ffe066;
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    /* ４択の一覧（正解＋３つ、画像検索リンク付き） */
+    .choice-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+    .choice-chip {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         background: #26315c;
         border-radius: 6px;
         padding: 6px 10px;
-        margin: 4px 8px 4px 0;
         font-size: 16px;
     }
-    .choice-hint-item a {
+    .choice-chip .choice-label {
+        color: #ffe066;
+        font-weight: bold;
+    }
+    .choice-chip a {
         color: #9fb3ff;
         font-size: 13px;
         text-decoration: none;
         border-bottom: 1px dotted #9fb3ff;
     }
-    .choice-hint-item a:hover { color: #ffe066; }
-    #empathyBtn {
-        background: #cc7a00;
+    .choice-chip a:hover { color: #ffe066; }
+
+    /* 出題者以外、一人ずつの回答欄 */
+    .answerer-list { margin-bottom: 10px; }
+    .answerer-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        background: #161f3d;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
     }
-    #empathyBtn:hover { background: #a86400; }
-    .empathy-count {
-        color: #ffe066;
+    .answerer-name {
+        min-width: 84px;
         font-weight: bold;
-        font-size: 18px;
-        margin-left: 8px;
+        color: white;
     }
+    .answerer-choice-btn {
+        background: #26315c;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        padding: 6px 12px;
+        color: white;
+        cursor: pointer;
+        font-size: 15px;
+    }
+    .answerer-choice-btn.selected {
+        border-color: #ffe066;
+        background: #3a4166;
+    }
+    .answerer-choice-btn.correct {
+        background: #1f7a4d;
+        border-color: #6bffb0;
+    }
+    .answerer-choice-btn.incorrect {
+        background: #7a2020;
+        border-color: #ff8a8a;
+        opacity: 0.75;
+    }
+    .answerer-result-icon {
+        font-size: 20px;
+        font-weight: bold;
+        min-width: 24px;
+        text-align: center;
+    }
+    #noHintCorrectBtn { background: #7a4fc7; }
+    #noHintCorrectBtn:hover { background: #603c9e; }
+
     #progressTimerDisplay:empty { display: none; }
     #presentFinished {
         display: none;
         text-align: center;
         padding: 20px;
+    }
+
+    /* 星が完成した時のお祝いモーダル */
+    #starCelebrationOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.65);
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    #starCelebrationPopup {
+        background: #111a33;
+        border: 1px solid #ffe066;
+        border-radius: 14px;
+        padding: 28px;
+        max-width: 340px;
+        width: 85%;
+        text-align: center;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+    }
+    #starCelebrationPopup p {
+        font-size: 18px;
+        color: #ffe066;
+        font-weight: bold;
+        line-height: 1.6;
+        margin: 12px 0 20px 0;
     }
 </style>
 </head>
@@ -272,24 +361,41 @@
 <!-- 発表フェーズ -->
 <div class="panel" id="presentPanel">
     <div class="present-progress" id="presentProgress"></div>
+    <div class="star-gauge" id="starGaugeText"></div>
     <div id="constellationView"></div>
-    <div class="hint-answer-box" id="hintAnswerBox" style="display:none;">
-        <div id="hintText"></div>
-        <div id="answerText"></div>
-        <div id="choiceHintBox" style="display:none; margin-top:10px;"></div>
+
+    <div class="present-controls" id="presentControlsMain">
+        <button id="noHintCorrectBtn">🌠 ノーヒントで正解！</button>
+        <button id="showChoicesBtn">🔤 ４択を出す</button>
     </div>
+
+    <div id="quizBox" style="display:none;">
+        <div id="choiceList" class="choice-list"></div>
+        <div id="answererList" class="answerer-list"></div>
+    </div>
+
+    <div class="hint-answer-box" id="hintAnswerBox" style="display:none;">
+        <div id="answerText"></div>
+    </div>
+
     <div class="present-controls">
-        <button id="hintBtn">💡 ヒント（1文字目）</button>
-        <button id="choiceHintBtn">🔤 ヒント（選択肢）</button>
         <button id="answerBtn">✅ こたえを見る</button>
-        <button id="empathyBtn">⭐ 共感スター<span class="empathy-count" id="empathyCount">0</span></button>
         <button id="nextBtn">次の星座へ ▶</button>
     </div>
 </div>
 <div class="panel" id="presentFinished">
     <h2 style="color:#ffe066;">全員の発表が終わりました！</h2>
     <p class="subtitle">おつかれさまでした。</p>
-    <p id="totalEmpathyMessage" style="font-size:20px; color:#ffe066; font-weight:bold; margin-top:16px;"></p>
+    <p id="finalStarMessage" style="font-size:20px; color:#ffe066; font-weight:bold; margin-top:16px;"></p>
+</div>
+
+<!-- 星が完成した時のお祝い表示 -->
+<div id="starCelebrationOverlay">
+    <div id="starCelebrationPopup">
+        <div style="font-size:56px; line-height:1;">🌟</div>
+        <p id="starCelebrationMessage"></p>
+        <button id="starCelebrationCloseBtn">とじる</button>
+    </div>
 </div>
 
 </div>
@@ -297,7 +403,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
     import {
-        getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, increment
+        getFirestore, doc, getDoc, setDoc, collection, onSnapshot, serverTimestamp, writeBatch
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     // ▼ Firebaseプロジェクトの設定（tsutaeboshiプロジェクト）
@@ -315,14 +421,80 @@
 
     // ジャンルごとのお題候補（今後、必要に応じて追加・編集可能）
     // ３択ヒントで同じ頭文字の候補を出しやすいよう、頭文字が重なる単語も多めに入れてある
+    // 漢字を含む単語は { text, reading } の形で読み方（ふりがな用）を持たせている
     const GENRE_THEMES = {
         "動物": ["ライオン", "ペンギン", "クマ", "キリン", "ゾウ", "パンダ", "サル", "ウサギ", "カメ", "イルカ", "キツネ", "コアラ", "カバ", "トラ", "シマウマ",
                  "アリ", "アライグマ", "イヌ", "ネコ", "ヒツジ", "ワニ", "クジラ", "サメ", "タヌキ", "ハト"],
-        "食べ物": ["リンゴ", "バナナ", "ドーナツ", "ハンバーガー", "ソフトクリーム", "おにぎり", "ラーメン", "ピザ", "いちご", "すいか", "たこ焼き", "カレー", "プリン", "パン", "すし",
-                 "アイス", "あんこ", "アメ", "いなり寿司", "うどん", "えびフライ", "おでん", "ぎょうざ", "ケーキ", "ゼリー", "チョコレート", "ナン", "ハンバーグ", "まんじゅう", "やきそば"],
-        "乗り物": ["電車", "ひこうき", "車", "船", "ロケット", "バス", "自転車", "ヘリコプター", "消防車", "救急車", "タクシー", "気球", "バイク", "新幹線", "パトカー",
+        "食べ物": ["リンゴ", "バナナ", "ドーナツ", "ハンバーガー", "ソフトクリーム", "おにぎり", "ラーメン", "ピザ", "いちご", "すいか",
+                 { text: "たこ焼き", reading: "たこやき" }, "カレー", "プリン", "パン", "すし",
+                 "アイス", "あんこ", "アメ", { text: "いなり寿司", reading: "いなりずし" }, "うどん", "えびフライ", "おでん", "ぎょうざ", "ケーキ", "ゼリー", "チョコレート", "ナン", "ハンバーグ", "まんじゅう", "やきそば"],
+        "乗り物": [{ text: "電車", reading: "でんしゃ" }, "ひこうき", { text: "車", reading: "くるま" }, { text: "船", reading: "ふね" }, "ロケット", "バス",
+                 { text: "自転車", reading: "じてんしゃ" }, "ヘリコプター", { text: "消防車", reading: "しょうぼうしゃ" }, { text: "救急車", reading: "きゅうきゅうしゃ" },
+                 "タクシー", { text: "気球", reading: "ききゅう" }, "バイク", { text: "新幹線", reading: "しんかんせん" }, "パトカー",
                  "トラック", "ヨット", "スクーター", "モノレール", "フェリー", "リムジン", "ボート", "ケーブルカー", "トロッコ", "ゴーカート"]
     };
+
+    // GENRE_THEMES の要素（文字列 or {text,reading}）から表示用のプレーンな文字列を取り出す
+    function themeText(entry){
+        return typeof entry === "string" ? entry : entry.text;
+    }
+
+    // 漢字を含む単語の読み方を引けるように、あらかじめ辞書化しておく（ふりがな表示用）
+    const THEME_READINGS = {};
+    Object.values(GENRE_THEMES).forEach(list => {
+        list.forEach(entry => {
+            if(typeof entry !== "string" && entry.reading){
+                THEME_READINGS[entry.text] = entry.reading;
+            }
+        });
+    });
+
+    function escapeHtml(str){
+        return String(str).replace(/[&<>"']/g, ch => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[ch]));
+    }
+
+    // カタカナをひらがなに変換する（テキストと読みの位置合わせに使う）
+    function kataToHira(str){
+        return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+    }
+
+    // text（例:「たこ焼き」）と reading（例:「たこやき」）を比較し、
+    // 前後のひらがな・カタカナが一致する部分を除いた「漢字部分」とその読みを取り出す
+    function splitKanjiRun(text, reading){
+        const normText = kataToHira(text);
+        let prefixLen = 0;
+        while(prefixLen < normText.length && prefixLen < reading.length &&
+              normText[prefixLen] === reading[prefixLen]){
+            prefixLen++;
+        }
+        let suffixLen = 0;
+        while(suffixLen < normText.length - prefixLen && suffixLen < reading.length - prefixLen &&
+              normText[normText.length - 1 - suffixLen] === reading[reading.length - 1 - suffixLen]){
+            suffixLen++;
+        }
+        return {
+            prefix: text.slice(0, prefixLen),
+            kanji: text.slice(prefixLen, text.length - suffixLen),
+            kanjiReading: reading.slice(prefixLen, reading.length - suffixLen),
+            suffix: text.slice(text.length - suffixLen)
+        };
+    }
+
+    // お題の単語部分（座を付ける前）をふりがな付きHTMLに変換する。漢字を含まない場合はそのままの文字列。
+    function buildFuriganaHtml(text){
+        const reading = THEME_READINGS[text];
+        if(!reading) return escapeHtml(text);
+        const { prefix, kanji, kanjiReading, suffix } = splitKanjiRun(text, reading);
+        if(!kanji) return escapeHtml(text);
+        return `${escapeHtml(prefix)}<ruby>${escapeHtml(kanji)}<rt>${escapeHtml(kanjiReading)}</rt></ruby>${escapeHtml(suffix)}`;
+    }
+
+    // お題名を「〇〇 座」の形で、座には小さめのふりがな「ざ」を付けて表示するHTMLを組み立てる
+    function renderConstellationNameHtml(text){
+        return `${buildFuriganaHtml(text)}<span class="za-suffix"> <ruby>座<rt>ざ</rt></ruby></span>`;
+    }
 
     const setupPanel = document.getElementById("setupPanel");
     const sessionPanel = document.getElementById("sessionPanel");
@@ -332,17 +504,21 @@
     const presentPanel = document.getElementById("presentPanel");
     const presentFinished = document.getElementById("presentFinished");
     const presentProgress = document.getElementById("presentProgress");
+    const starGaugeText = document.getElementById("starGaugeText");
     const constellationView = document.getElementById("constellationView");
     const hintAnswerBox = document.getElementById("hintAnswerBox");
-    const hintText = document.getElementById("hintText");
     const answerText = document.getElementById("answerText");
-    const hintBtn = document.getElementById("hintBtn");
-    const choiceHintBtn = document.getElementById("choiceHintBtn");
-    const choiceHintBox = document.getElementById("choiceHintBox");
+    const presentControlsMain = document.getElementById("presentControlsMain");
+    const noHintCorrectBtn = document.getElementById("noHintCorrectBtn");
+    const showChoicesBtn = document.getElementById("showChoicesBtn");
+    const quizBox = document.getElementById("quizBox");
+    const choiceList = document.getElementById("choiceList");
+    const answererList = document.getElementById("answererList");
     const answerBtn = document.getElementById("answerBtn");
-    const empathyBtn = document.getElementById("empathyBtn");
-    const empathyCount = document.getElementById("empathyCount");
     const nextBtn = document.getElementById("nextBtn");
+    const starCelebrationOverlay = document.getElementById("starCelebrationOverlay");
+    const starCelebrationMessage = document.getElementById("starCelebrationMessage");
+    const starCelebrationCloseBtn = document.getElementById("starCelebrationCloseBtn");
     const createSessionBtn = document.getElementById("createSessionBtn");
     const startGameBtn = document.getElementById("startGameBtn");
     const participantList = document.getElementById("participantList");
@@ -397,13 +573,10 @@
         progressCountdownInterval = setInterval(tick, 1000);
     }
 
-    // 全角カタカナをひらがなに正規化する（頭文字の一致判定に使う。「ア」と「あ」を同じ扱いにするため）
-    function toHiragana(str){
-        return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
-    }
+    // 頭文字の一致判定に使う（「ア」と「あ」を同じ扱いにするため kataToHira で正規化する）
     function normalizedFirstChar(str){
         if(!str) return "";
-        return toHiragana(str.charAt(0));
+        return kataToHira(str.charAt(0));
     }
 
     // 教員画面のタブがChromebook等でリロード（バックグラウンドで自動破棄→復帰時に再読み込み等）
@@ -433,7 +606,7 @@
         try {
             await setDoc(doc(db, "sessions", sessionId), {
                 genre,
-                themeList: GENRE_THEMES[genre] || [],
+                themeList: (GENRE_THEMES[genre] || []).map(themeText),
                 timeLimitSec: Math.round(timeLimitMin * 60),
                 maxPieces,
                 status: "waiting", // waiting → creating → presenting の順に進む予定
@@ -561,7 +734,7 @@
                 if(i > 0 && i % themePool.length === 0){
                     themePool = shuffle(sessionSnapForThemes); // 一周したら再シャッフルして続ける
                 }
-                return { participantId: p.id, theme: themePool[i % themePool.length] };
+                return { participantId: p.id, theme: themeText(themePool[i % themePool.length]) };
             });
 
             const batch = writeBatch(db);
@@ -610,12 +783,23 @@
     let presentationQueue = [];
     let presentationIndex = 0;
     let currentPresentedParticipant = null;
-    let totalEmpathyStars = 0; // 星座ごとにリセットせず、発表フェーズ全体で累積していく共感スターの合計
+    // 星のかけら（正解した人数などに応じて集まる）。星座ごとにリセットせず、発表フェーズ全体で累積する
+    let starFragments = 0;
+    let completedStars = 0;
+    const FRAGMENTS_PER_STAR = 10;
+    const NO_HINT_BONUS = 10; // ヒントなしで正解できたときの特大ボーナス
+
+    // 現在の４択クイズの状態
+    let currentChoices = [];
+    let correctChoiceIndex = -1;
+    let answererSelections = {}; // participantId -> 選んだ選択肢のindex
+    let quizRevealed = false;
 
     startPresentBtn.addEventListener("click", () => {
         presentationQueue = shuffle(currentParticipants);
         presentationIndex = 0;
-        totalEmpathyStars = 0;
+        starFragments = 0;
+        completedStars = 0;
         progressPanel.style.display = "none";
         presentPanel.style.display = "block";
         presentFinished.style.display = "none";
@@ -626,20 +810,31 @@
         if(presentationIndex >= presentationQueue.length){
             presentPanel.style.display = "none";
             presentFinished.style.display = "block";
-            document.getElementById("totalEmpathyMessage").textContent = getEmpathyMessage(totalEmpathyStars);
+            document.getElementById("finalStarMessage").textContent = getFinalStarMessage();
             return;
         }
         currentPresentedParticipant = presentationQueue[presentationIndex];
         presentationIndex++;
 
         presentProgress.textContent = `${presentationIndex} / ${presentationQueue.length} 人目`;
-        hintAnswerBox.style.display = "none";
-        hintText.textContent = "";
-        answerText.innerHTML = "";
-        choiceHintBox.style.display = "none";
-        choiceHintBox.innerHTML = "";
-        empathyCount.textContent = totalEmpathyStars; // 星座が変わってもリセットせず、これまでの合計を表示し続ける
 
+        // クイズ状態をリセット
+        currentChoices = [];
+        correctChoiceIndex = -1;
+        answererSelections = {};
+        quizRevealed = false;
+
+        hintAnswerBox.style.display = "none";
+        answerText.innerHTML = "";
+        quizBox.style.display = "none";
+        choiceList.innerHTML = "";
+        answererList.innerHTML = "";
+        presentControlsMain.style.display = "flex";
+        noHintCorrectBtn.disabled = false;
+        showChoicesBtn.disabled = false;
+        answerBtn.style.display = "inline-block";
+
+        updateStarGaugeDisplay();
         renderConstellation(currentPresentedParticipant);
     }
 
@@ -678,86 +873,149 @@
         return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(word)}`;
     }
 
-    // 共感スターの合計数に応じて、常に前向きなメッセージを返す
-    function getEmpathyMessage(total){
-        if(total <= 0){
-            return "みんなの発表、おつかれさまでした！これからも素敵な伝え星を作っていこうね。";
-        } else if(total < 5){
-            return `共感スターが${total}個集まりました！あたたかい気持ちが伝わりましたね。`;
-        } else if(total < 15){
-            return `共感スターが${total}個も集まりました！たくさんの共感が生まれましたね！`;
-        } else if(total < 30){
-            return `共感スターが${total}個も集まりました！素晴らしい発表ばかりでしたね！`;
+    // 星のかけらを加算し、しきい値を超えたら「きれいな星」完成のお祝いを出す
+    function addFragments(n){
+        if(n <= 0) return;
+        starFragments += n;
+        const newCompleted = Math.floor(starFragments / FRAGMENTS_PER_STAR);
+        if(newCompleted > completedStars){
+            completedStars = newCompleted;
+            showStarCelebration(completedStars);
+        }
+        updateStarGaugeDisplay();
+    }
+
+    function updateStarGaugeDisplay(){
+        const inCurrent = starFragments % FRAGMENTS_PER_STAR;
+        starGaugeText.textContent = `✨ 星のかけら ${inCurrent} / ${FRAGMENTS_PER_STAR}　（きれいな星：${completedStars}個）`;
+    }
+
+    function getStarCelebrationText(count){
+        if(count === 1) return "きれいな星が完成！\nおめでとう！";
+        if(count === 2) return "きれいな星が２個できた！\nさらにおめでとう！";
+        if(count === 3) return "きれいな星が３個できた！\nさらにさらにおめでとう！";
+        return `きれいな星が${count}個できた！\nみんなの力の結晶だね、すごい！`;
+    }
+
+    function showStarCelebration(count){
+        starCelebrationMessage.textContent = getStarCelebrationText(count);
+        starCelebrationOverlay.style.display = "flex";
+    }
+    starCelebrationCloseBtn.addEventListener("click", () => {
+        starCelebrationOverlay.style.display = "none";
+    });
+
+    // 発表が全部終わった時の、完成した星の数に応じた前向きなメッセージ
+    function getFinalStarMessage(){
+        if(completedStars <= 0 && starFragments <= 0){
+            return "みんなの発表、おつかれさまでした！次はどんな星が完成するか楽しみだね。";
+        } else if(completedStars === 0){
+            return `星のかけらが${starFragments}個集まりました！あと少しで星が完成しそうだね。`;
+        } else if(completedStars === 1){
+            return "きれいな星が１個完成しました！おめでとう！みんなよくがんばったね。";
+        } else if(completedStars === 2){
+            return "きれいな星が２個も完成しました！さらにおめでとう！最高のチームワークだったね。";
         } else {
-            return `共感スターが${total}個も集まりました！記録的な盛り上がりでした。すごい！`;
+            return `きれいな星が${completedStars}個も完成しました！さらにさらにおめでとう！みんなの力の結晶だね、すごい！`;
         }
     }
 
-    // お題と同じジャンルの中から、頭文字が一致する候補を優先して３択（正解＋２つ）を作る
+    // お題と同じジャンルの中から、頭文字が一致する候補を優先して４択（正解＋３つ）を作る
     function buildChoiceOptions(participant){
         const theme = participant.theme || "";
-        const pool = (GENRE_THEMES[currentSessionGenre] || []).filter(w => w !== theme);
+        const pool = (GENRE_THEMES[currentSessionGenre] || []).map(themeText).filter(w => w !== theme);
         const targetFirst = normalizedFirstChar(theme);
         const sameFirstPool = shuffle(pool.filter(w => normalizedFirstChar(w) === targetFirst));
 
-        const distractors = sameFirstPool.slice(0, 2);
-        if(distractors.length < 2){
+        const distractors = sameFirstPool.slice(0, 3);
+        if(distractors.length < 3){
             const rest = shuffle(pool.filter(w => !distractors.includes(w)));
-            while(distractors.length < 2 && rest.length > 0){
+            while(distractors.length < 3 && rest.length > 0){
                 distractors.push(rest.pop());
             }
         }
         return shuffle([theme, ...distractors]);
     }
 
-    hintBtn.addEventListener("click", () => {
-        if(!currentPresentedParticipant) return;
-        const theme = currentPresentedParticipant.theme || "";
-        hintText.textContent = `ヒント：「${theme.charAt(0)}」からはじまるよ`;
-        hintAnswerBox.style.display = "block";
-    });
+    const CHOICE_LABELS = ["①", "②", "③", "④"];
 
-    choiceHintBtn.addEventListener("click", () => {
-        if(!currentPresentedParticipant) return;
-        const choices = buildChoiceOptions(currentPresentedParticipant);
+    function renderChoiceList(){
+        choiceList.innerHTML = "";
+        currentChoices.forEach((word, i) => {
+            const chip = document.createElement("div");
+            chip.className = "choice-chip";
 
-        choiceHintBox.innerHTML = "";
-        const label = document.createElement("div");
-        label.style.color = "#9fb3ff";
-        label.style.fontSize = "13px";
-        label.style.marginBottom = "6px";
-        label.textContent = "３択ヒント（このうちの１つが正解です）：";
-        choiceHintBox.appendChild(label);
-
-        choices.forEach(word => {
-            const item = document.createElement("span");
-            item.className = "choice-hint-item";
+            const labelSpan = document.createElement("span");
+            labelSpan.className = "choice-label";
+            labelSpan.textContent = CHOICE_LABELS[i] || "";
+            chip.appendChild(labelSpan);
 
             const wordSpan = document.createElement("span");
-            wordSpan.textContent = word;
-            item.appendChild(wordSpan);
+            wordSpan.innerHTML = buildFuriganaHtml(word);
+            chip.appendChild(wordSpan);
 
             const link = document.createElement("a");
             link.href = imageSearchUrl(word);
             link.target = "_blank";
             link.rel = "noopener noreferrer";
             link.textContent = "🔍 画像検索";
-            item.appendChild(link);
+            chip.appendChild(link);
 
-            choiceHintBox.appendChild(item);
+            choiceList.appendChild(chip);
         });
+    }
 
-        choiceHintBox.style.display = "block";
-        hintAnswerBox.style.display = "block";
-    });
+    function renderAnswererRows(){
+        answererList.innerHTML = "";
+        const others = currentParticipants.filter(p => p.id !== currentPresentedParticipant.id);
 
-    answerBtn.addEventListener("click", () => {
-        if(!currentPresentedParticipant) return;
+        if(others.length === 0){
+            const note = document.createElement("div");
+            note.style.color = "#9fb3ff";
+            note.textContent = "（他の参加者がいません）";
+            answererList.appendChild(note);
+            return;
+        }
+
+        others.forEach(p => {
+            const row = document.createElement("div");
+            row.className = "answerer-row";
+            row.dataset.participantId = p.id;
+
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "answerer-name";
+            nameSpan.textContent = p.name || "（名前未設定）";
+            row.appendChild(nameSpan);
+
+            currentChoices.forEach((word, i) => {
+                const btn = document.createElement("button");
+                btn.className = "answerer-choice-btn";
+                btn.textContent = CHOICE_LABELS[i] || "";
+                btn.dataset.idx = i;
+                btn.addEventListener("click", () => {
+                    if(quizRevealed) return;
+                    answererSelections[p.id] = i;
+                    row.querySelectorAll(".answerer-choice-btn").forEach(b => b.classList.remove("selected"));
+                    btn.classList.add("selected");
+                });
+                row.appendChild(btn);
+            });
+
+            const resultIcon = document.createElement("span");
+            resultIcon.className = "answerer-result-icon";
+            row.appendChild(resultIcon);
+
+            answererList.appendChild(row);
+        });
+    }
+
+    // 正解発表の共通部分（お題名をふりがな付きで表示し、画像検索リンクを付ける）
+    function revealAnswerCore(){
         const theme = currentPresentedParticipant.theme || "";
 
         answerText.innerHTML = "";
         const textSpan = document.createElement("span");
-        textSpan.textContent = `${currentPresentedParticipant.name}さん作「${theme}座」でした！　`;
+        textSpan.innerHTML = `${escapeHtml(currentPresentedParticipant.name)}さん作「${renderConstellationNameHtml(theme)}」でした！　`;
         answerText.appendChild(textSpan);
 
         const link = document.createElement("a");
@@ -770,19 +1028,82 @@
         answerText.appendChild(link);
 
         hintAnswerBox.style.display = "block";
+    }
+
+    noHintCorrectBtn.addEventListener("click", () => {
+        if(!currentPresentedParticipant) return;
+        revealAnswerCore();
+        addFragments(NO_HINT_BONUS);
+
+        const bonusNote = document.createElement("div");
+        bonusNote.style.marginTop = "10px";
+        bonusNote.style.color = "#c9a6ff";
+        bonusNote.style.fontWeight = "bold";
+        bonusNote.textContent = `🌠 ヒントなしで大正解！ 星のかけら +${NO_HINT_BONUS}！`;
+        answerText.parentElement.appendChild(bonusNote);
+
+        presentControlsMain.style.display = "none";
+        answerBtn.style.display = "none";
     });
 
-    empathyBtn.addEventListener("click", async () => {
-        if(!currentPresentedParticipant || !currentSessionId) return;
-        // 表示上先に反映してから、Firestoreへも加算しておく（記録用に参加者ごとの内訳も残す）
-        totalEmpathyStars++;
-        empathyCount.textContent = totalEmpathyStars;
-        try {
-            const pRef = doc(db, "sessions", currentSessionId, "participants", currentPresentedParticipant.id);
-            await updateDoc(pRef, { empathyStars: increment(1) });
-        } catch(err){
-            console.error("共感スターの加算に失敗:", err);
+    showChoicesBtn.addEventListener("click", () => {
+        if(!currentPresentedParticipant) return;
+        currentChoices = buildChoiceOptions(currentPresentedParticipant);
+        correctChoiceIndex = currentChoices.indexOf(currentPresentedParticipant.theme);
+        answererSelections = {};
+        quizRevealed = false;
+
+        renderChoiceList();
+        renderAnswererRows();
+        quizBox.style.display = "block";
+        presentControlsMain.style.display = "none";
+    });
+
+    answerBtn.addEventListener("click", () => {
+        if(!currentPresentedParticipant) return;
+        revealAnswerCore();
+
+        if(quizBox.style.display === "block" && !quizRevealed){
+            quizRevealed = true;
+            let correctCount = 0;
+
+            answererList.querySelectorAll(".answerer-row").forEach(row => {
+                const pid = row.dataset.participantId;
+                const sel = answererSelections[pid];
+                const icon = row.querySelector(".answerer-result-icon");
+
+                row.querySelectorAll(".answerer-choice-btn").forEach((b, i) => {
+                    b.disabled = true;
+                    if(i === correctChoiceIndex) b.classList.add("correct");
+                    else if(i === sel) b.classList.add("incorrect");
+                });
+
+                if(sel === correctChoiceIndex){
+                    correctCount++;
+                    icon.textContent = "○";
+                    icon.style.color = "#6bffb0";
+                } else if(sel !== undefined){
+                    icon.textContent = "×";
+                    icon.style.color = "#ff8a8a";
+                } else {
+                    icon.textContent = "－";
+                    icon.style.color = "#9fb3ff";
+                }
+            });
+
+            if(correctCount > 0) addFragments(correctCount);
+
+            const summary = document.createElement("div");
+            summary.style.marginTop = "10px";
+            summary.style.color = "#ffe066";
+            summary.style.fontWeight = "bold";
+            summary.textContent = correctCount > 0
+                ? `正解者 ${correctCount}人！ 星のかけら +${correctCount}`
+                : "今回は正解者なし。次はきっと当たるよ！";
+            answererList.appendChild(summary);
         }
+
+        answerBtn.style.display = "none";
     });
 
     nextBtn.addEventListener("click", showNextConstellation);
