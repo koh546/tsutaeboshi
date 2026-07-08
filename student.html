@@ -977,17 +977,88 @@
     }
 
     function attachDeleteHandle(trash, piece){
-        function onDelete(e){
-            e.stopPropagation();
-            e.preventDefault();
+        let dragging = false;
+        let moved = false;
+        let startX = 0, startY = 0;
+        let startLeft = 0, startTop = 0;
+        let preDragSnapshot = null;
+        let historyPushed = false;
+        const DRAG_THRESHOLD = 6; // これ未満の移動ならドラッグとみなさず、タップ（削除）として扱う
+
+        function pointFromEvent(e){
+            if(e.touches && e.touches.length > 0){
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function onDelete(){
             pushHistory();
             if(selected === piece) selected = null;
             piece.remove();
             updatePieceCountDisplay();
         }
-        trash.addEventListener("mousedown", e => e.stopPropagation());
-        trash.addEventListener("click", onDelete);
-        trash.addEventListener("touchend", onDelete, { passive: false });
+
+        function start(e){
+            e.stopPropagation();
+            e.preventDefault();
+            const p = pointFromEvent(e);
+            dragging = true;
+            moved = false;
+            historyPushed = false;
+            preDragSnapshot = snapshotState();
+            startX = p.x;
+            startY = p.y;
+            startLeft = piece.offsetLeft;
+            startTop = piece.offsetTop;
+            setSelected(piece);
+        }
+
+        function move(e){
+            if(!dragging) return;
+            e.preventDefault();
+            const p = pointFromEvent(e);
+            const dx = p.x - startX;
+            const dy = p.y - startY;
+            if(!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+
+            if(!historyPushed){
+                historyStack.push(preDragSnapshot);
+                undoBtn.disabled = false;
+                historyPushed = true;
+            }
+            moved = true;
+            pieceDragMoved = true;
+
+            const rect = canvas.getBoundingClientRect();
+            let nx = startLeft + dx;
+            let ny = startTop + dy;
+            nx = Math.max(0, Math.min(nx, rect.width - piece.offsetWidth));
+            ny = Math.max(0, Math.min(ny, rect.height - piece.offsetHeight));
+            piece.style.left = nx + "px";
+            piece.style.top = ny + "px";
+        }
+
+        function end(e){
+            if(!dragging) return;
+            dragging = false;
+            e.stopPropagation();
+            e.preventDefault();
+            if(moved){
+                setTimeout(() => { pieceDragMoved = false; }, 50);
+            } else {
+                onDelete();
+            }
+        }
+
+        trash.addEventListener("mousedown", start);
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", end);
+
+        trash.addEventListener("touchstart", start, { passive: false });
+        document.addEventListener("touchmove", move, { passive: false });
+        trash.addEventListener("touchend", end, { passive: false });
+        document.addEventListener("touchend", end);
     }
 
     function attachPieceEvents(piece){
