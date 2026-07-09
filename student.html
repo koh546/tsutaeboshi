@@ -87,7 +87,7 @@
         display: none;
     }
 
-    #waitingScreen, #themeScreen, #submittedScreen { display: none; }
+    #waitingScreen, #themeScreen, #submittedScreen, #guessOnlyWaitingScreen { display: none; }
     .waiting-name {
         font-size: 20px;
         color: #ffe066;
@@ -340,6 +340,10 @@
             <label for="nameInput">なまえ</label>
             <input type="text" id="nameInput" placeholder="やまだ たろう" maxlength="20">
         </div>
+        <div class="field" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+            <input type="checkbox" id="guessOnlyCheckbox" style="width:auto; min-height:auto;">
+            <label for="guessOnlyCheckbox" style="margin:0; font-size:14px;">星座は作らず、予想だけで参加する</label>
+        </div>
         <button id="joinBtn">参加する</button>
     </div>
 
@@ -368,6 +372,16 @@
             おつかれさま！<br>
             みんなが提出し終わったら、<br>
             発表がはじまります。
+        </div>
+    </div>
+
+    <!-- 予想だけ参加の待機画面 -->
+    <div id="guessOnlyWaitingScreen">
+        <h1>予想だけで参加中！</h1>
+        <div class="waiting-message">
+            みんなの星座の発表を、<br>
+            楽しみに待っていてね。<br>
+            どの星座か当てられるかな？
         </div>
     </div>
 
@@ -438,8 +452,10 @@
     const submittedScreen = document.getElementById("submittedScreen");
     const startCreatingBtn = document.getElementById("startCreatingBtn");
     const nameInput = document.getElementById("nameInput");
+    const guessOnlyCheckbox = document.getElementById("guessOnlyCheckbox");
     const joinBtn = document.getElementById("joinBtn");
     const waitingName = document.getElementById("waitingName");
+    const guessOnlyWaitingScreen = document.getElementById("guessOnlyWaitingScreen");
     const creationScreenEl = document.getElementById("creationScreen");
 
     let myParticipantId = null;
@@ -447,7 +463,7 @@
     let themeScreenShown = false;
 
     function showOnly(el){
-        [loadingScreen, errorScreen, joinScreen, waitingScreen, themeScreen, submittedScreen].forEach(s => {
+        [loadingScreen, errorScreen, joinScreen, waitingScreen, themeScreen, submittedScreen, guessOnlyWaitingScreen].forEach(s => {
             s.style.display = (s === el) ? "block" : "none";
         });
     }
@@ -499,6 +515,7 @@
             nameInput.focus();
             return;
         }
+        const guessOnly = guessOnlyCheckbox.checked;
         joinBtn.disabled = true;
         joinBtn.textContent = "参加中…";
 
@@ -507,7 +524,10 @@
             const docRef = await addDoc(participantsRef, {
                 name,
                 joinedAt: serverTimestamp(),
-                submitted: false,
+                guessOnly,
+                // 予想だけの参加者は星座を作らないので、最初から「提出済み」扱いにしておく
+                // （全員提出済みチェックで待たされないようにするため）
+                submitted: guessOnly,
                 theme: null,
                 piecesData: null,
                 empathyStars: 0
@@ -530,12 +550,17 @@
     });
 
     // 自分の参加者ドキュメントを見張っておき、お題（theme）が届いたらお題発表画面に、
-    // すでに提出済みなら提出後の画面に切り替える。
+    // すでに提出済みなら提出後の画面（予想だけ参加の場合は専用の待機画面）に切り替える。
     function watchMyParticipant(sessionId){
         if(!myParticipantId) return;
         onSnapshot(doc(db, "sessions", sessionId, "participants", myParticipantId), (snap) => {
             if(!snap.exists()) return;
             const data = snap.data();
+
+            if(data.guessOnly){
+                showOnly(guessOnlyWaitingScreen);
+                return;
+            }
 
             if(data.submitted){
                 if(countdownInterval) clearInterval(countdownInterval);

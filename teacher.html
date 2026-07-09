@@ -128,6 +128,7 @@
     }
     .status-submitted { color: #6bffb0; }
     .status-pending { color: #ffb066; }
+    .status-guessonly { color: #9fb3ff; }
 
     #startPresentBtn { margin-top: 16px; display: none; }
 
@@ -266,7 +267,41 @@
         display: none;
         text-align: center;
         padding: 20px;
+        max-width: 900px;
     }
+
+    /* みんなの星空（フィナーレ画面） */
+    #nightSkyView {
+        position: relative;
+        width: 100%;
+        height: 65vh;
+        min-height: 380px;
+        background: radial-gradient(ellipse at center, #0d1b3f 0%, #04060f 80%);
+        border-radius: 14px;
+        overflow: hidden;
+        margin: 20px 0;
+    }
+    #nightSkyView .sky-star {
+        position: absolute;
+        color: white;
+        text-shadow: 0 0 6px rgba(255,255,255,0.8);
+        transform-origin: center center;
+        white-space: nowrap;
+    }
+    #nightSkyView .filler-star {
+        color: rgba(255,255,255,0.55);
+        text-shadow: 0 0 3px rgba(255,255,255,0.5);
+    }
+    #nightSkyView .piece-line {
+        color: transparent;
+        transition: color 0.5s ease;
+    }
+    #nightSkyView.lines-visible .piece-line {
+        color: rgba(255, 230, 102, 0.9);
+        text-shadow: 0 0 4px rgba(255, 230, 102, 0.6);
+    }
+    #toggleLinesBtn { background: #3a4166; }
+    #toggleLinesBtn:hover { background: #2c3150; }
 
     /* 星が完成した時のお祝いモーダル */
     #starCelebrationOverlay {
@@ -387,6 +422,12 @@
     <h2 style="color:#ffe066;">全員の発表が終わりました！</h2>
     <p class="subtitle">おつかれさまでした。</p>
     <p id="finalStarMessage" style="font-size:20px; color:#ffe066; font-weight:bold; margin-top:16px;"></p>
+
+    <h3 style="color:#9fb3ff; margin-top:24px; margin-bottom:0;">🌌 みんなの星空</h3>
+    <div id="nightSkyView"></div>
+    <div class="present-controls" style="justify-content:center;">
+        <button id="toggleLinesBtn">直線を表示する</button>
+    </div>
 </div>
 
 <!-- 星が完成した時のお祝い表示 -->
@@ -503,6 +544,8 @@
     const startPresentBtn = document.getElementById("startPresentBtn");
     const presentPanel = document.getElementById("presentPanel");
     const presentFinished = document.getElementById("presentFinished");
+    const nightSkyView = document.getElementById("nightSkyView");
+    const toggleLinesBtn = document.getElementById("toggleLinesBtn");
     const presentProgress = document.getElementById("presentProgress");
     const starGaugeText = document.getElementById("starGaugeText");
     const constellationView = document.getElementById("constellationView");
@@ -723,14 +766,20 @@
 
     startGameBtn.addEventListener("click", async () => {
         if(currentParticipants.length === 0 || !currentSessionId) return;
+        if(currentParticipants.every(p => p.guessOnly)){
+            alert("星座を作る参加者が１人もいません。「予想だけ参加」以外の参加者が最低１人は必要です。");
+            return;
+        }
         startGameBtn.disabled = true;
         startGameBtn.textContent = "開始中…";
 
         try {
             // お題候補をシャッフルし、参加者数分に足りない場合はさらにシャッフルして繰り返し使う
+            // 「予想だけ参加」の人には星座のお題を割り当てない
+            const drawingParticipants = currentParticipants.filter(p => !p.guessOnly);
             const sessionSnapForThemes = GENRE_THEMES[document.getElementById("genreInput").value] || [];
             let themePool = shuffle(sessionSnapForThemes);
-            const assignments = currentParticipants.map((p, i) => {
+            const assignments = drawingParticipants.map((p, i) => {
                 if(i > 0 && i % themePool.length === 0){
                     themePool = shuffle(sessionSnapForThemes); // 一周したら再シャッフルして続ける
                 }
@@ -763,7 +812,10 @@
             const nameSpan = document.createElement("span");
             nameSpan.textContent = p.name || "（名前未設定）";
             const statusSpan = document.createElement("span");
-            if(p.submitted){
+            if(p.guessOnly){
+                statusSpan.textContent = "予想のみ参加";
+                statusSpan.className = "status-guessonly";
+            } else if(p.submitted){
                 statusSpan.textContent = "提出済み";
                 statusSpan.className = "status-submitted";
             } else {
@@ -786,8 +838,17 @@
     // 星のかけら（正解した人数などに応じて集まる）。星座ごとにリセットせず、発表フェーズ全体で累積する
     let starFragments = 0;
     let completedStars = 0;
-    const FRAGMENTS_PER_STAR = 10;
-    const NO_HINT_BONUS = 10; // ヒントなしで正解できたときの特大ボーナス
+    const MIN_FRAGMENTS_PER_STAR = 3; // 予想する人数が少ない時でも簡単になりすぎないよう最低ライン
+
+    // 星１個の完成に必要なかけら数は固定ではなく、「その回に予想する人数」に応じて変える
+    // （出題者以外の全員＝毎回の予想人数。予想だけ参加の人も含む）
+    function getGuesserCount(){
+        if(!currentPresentedParticipant) return Math.max(0, currentParticipants.length - 1);
+        return currentParticipants.filter(p => p.id !== currentPresentedParticipant.id).length;
+    }
+    function getFragmentsPerStar(){
+        return Math.max(MIN_FRAGMENTS_PER_STAR, getGuesserCount());
+    }
 
     // 現在の４択クイズの状態
     let currentChoices = [];
@@ -796,7 +857,8 @@
     let quizRevealed = false;
 
     startPresentBtn.addEventListener("click", () => {
-        presentationQueue = shuffle(currentParticipants);
+        // 「予想だけ参加」の人は発表（出題）せず、星座を作った人だけが順番に発表する
+        presentationQueue = shuffle(currentParticipants.filter(p => !p.guessOnly));
         presentationIndex = 0;
         starFragments = 0;
         completedStars = 0;
@@ -811,6 +873,7 @@
             presentPanel.style.display = "none";
             presentFinished.style.display = "block";
             document.getElementById("finalStarMessage").textContent = getFinalStarMessage();
+            renderNightSky();
             return;
         }
         currentPresentedParticipant = presentationQueue[presentationIndex];
@@ -877,7 +940,8 @@
     function addFragments(n){
         if(n <= 0) return;
         starFragments += n;
-        const newCompleted = Math.floor(starFragments / FRAGMENTS_PER_STAR);
+        const perStar = getFragmentsPerStar();
+        const newCompleted = Math.floor(starFragments / perStar);
         if(newCompleted > completedStars){
             completedStars = newCompleted;
             showStarCelebration(completedStars);
@@ -886,8 +950,9 @@
     }
 
     function updateStarGaugeDisplay(){
-        const inCurrent = starFragments % FRAGMENTS_PER_STAR;
-        starGaugeText.textContent = `✨ 星のかけら ${inCurrent} / ${FRAGMENTS_PER_STAR}　（きれいな星：${completedStars}個）`;
+        const perStar = getFragmentsPerStar();
+        const inCurrent = starFragments % perStar;
+        starGaugeText.textContent = `✨ 星のかけら ${inCurrent} / ${perStar}　（きれいな星：${completedStars}個）`;
     }
 
     function getStarCelebrationText(count){
@@ -1033,13 +1098,15 @@
     noHintCorrectBtn.addEventListener("click", () => {
         if(!currentPresentedParticipant) return;
         revealAnswerCore();
-        addFragments(NO_HINT_BONUS);
+        // ヒントなし正解のボーナスは「今回の予想人数」分＝星が１個まるまる完成する量にする
+        const bonus = getFragmentsPerStar();
+        addFragments(bonus);
 
         const bonusNote = document.createElement("div");
         bonusNote.style.marginTop = "10px";
         bonusNote.style.color = "#c9a6ff";
         bonusNote.style.fontWeight = "bold";
-        bonusNote.textContent = `🌠 ヒントなしで大正解！ 星のかけら +${NO_HINT_BONUS}！`;
+        bonusNote.textContent = `🌠 ヒントなしで大正解！ 星のかけら +${bonus}！`;
         answerText.parentElement.appendChild(bonusNote);
 
         presentControlsMain.style.display = "none";
@@ -1107,6 +1174,116 @@
     });
 
     nextBtn.addEventListener("click", showNextConstellation);
+
+    // ===== みんなの星空（フィナーレ画面） =====
+    let nightSkyLinesVisible = false;
+
+    // ピース種別ごとの、線を含めたおおよその長さ（バウンディングボックス計算用の概算値）
+    function pieceApproxLength(type){
+        if(type === 'short') return 40;
+        if(type === 'mid') return 80;
+        if(type === 'long') return 160;
+        return 0;
+    }
+
+    // 直線の色をtransparentにしておき、表示ON/OFFで色だけ切り替える。
+    // display切替ではなく色の切替にすることで、線を消しても星の位置（間隔）がズレないようにしている。
+    function buildSkyPieceElement(piece, fontSize){
+        const wrapper = document.createElement("span");
+        wrapper.className = "sky-star";
+        wrapper.style.fontSize = fontSize + "px";
+        wrapper.style.transform = `rotate(${piece.angle || 0}deg)`;
+
+        if(piece.type === 'star'){
+            const dot = document.createElement("span");
+            dot.textContent = "●";
+            wrapper.appendChild(dot);
+        } else {
+            const dashCounts = { short: 2, mid: 4, long: 8 };
+            const dashCount = dashCounts[piece.type] || 2;
+            const startDot = document.createElement("span");
+            startDot.textContent = "●";
+            const line = document.createElement("span");
+            line.className = "piece-line";
+            line.textContent = "─".repeat(dashCount);
+            const endDot = document.createElement("span");
+            endDot.textContent = "●";
+            wrapper.appendChild(startDot);
+            wrapper.appendChild(line);
+            wrapper.appendChild(endDot);
+        }
+        return wrapper;
+    }
+
+    // 参加者全員の星座を、バラバラな位置に散らして１つの夜空にまとめて描画する
+    function renderNightSky(){
+        nightSkyView.innerHTML = "";
+        nightSkyView.classList.remove("lines-visible");
+        nightSkyLinesVisible = false;
+        toggleLinesBtn.textContent = "直線を表示する";
+
+        const rect = nightSkyView.getBoundingClientRect();
+        const W = rect.width;
+        const H = rect.height;
+        if(!W || !H) return;
+
+        const FONT_SIZE = 20;
+        const CLUSTER_SCALE = 0.55; // 制作時のキャンバスに対する縮小率
+        let totalDots = 0;
+
+        currentParticipants.forEach(participant => {
+            const pieces = participant.piecesData || [];
+            if(pieces.length === 0) return;
+
+            // 線の長さも考慮した、このお子さんの星座のバウンディングボックスを求める
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            pieces.forEach(pc => {
+                const len = pieceApproxLength(pc.type);
+                minX = Math.min(minX, pc.x - len);
+                maxX = Math.max(maxX, pc.x + len);
+                minY = Math.min(minY, pc.y - len);
+                maxY = Math.max(maxY, pc.y + len);
+            });
+            if(!isFinite(minX)) return;
+
+            const bboxW = (maxX - minX) * CLUSTER_SCALE;
+            const bboxH = (maxY - minY) * CLUSTER_SCALE;
+            const marginX = Math.min(bboxW / 2, W / 2 - 10);
+            const marginY = Math.min(bboxH / 2, H / 2 - 10);
+            const cx = marginX + Math.random() * Math.max(1, W - marginX * 2);
+            const cy = marginY + Math.random() * Math.max(1, H - marginY * 2);
+            const originCenterX = (minX + maxX) / 2;
+            const originCenterY = (minY + maxY) / 2;
+
+            pieces.forEach(pc => {
+                const el = buildSkyPieceElement(pc, FONT_SIZE * CLUSTER_SCALE);
+                el.style.left = (cx + (pc.x - originCenterX) * CLUSTER_SCALE) + "px";
+                el.style.top = (cy + (pc.y - originCenterY) * CLUSTER_SCALE) + "px";
+                nightSkyView.appendChild(el);
+                totalDots += (pc.type === 'star') ? 1 : 2;
+            });
+        });
+
+        // 星が少ない時は、ランダムな飾りの星を足してリアルな夜空に近づける
+        const TARGET_MIN_STARS = 90;
+        const fillerCount = Math.min(150, Math.max(0, TARGET_MIN_STARS - totalDots));
+        for(let i = 0; i < fillerCount; i++){
+            const dot = document.createElement("span");
+            dot.className = "sky-star filler-star";
+            dot.textContent = "●";
+            dot.style.position = "absolute";
+            dot.style.left = (Math.random() * W) + "px";
+            dot.style.top = (Math.random() * H) + "px";
+            dot.style.fontSize = (6 + Math.random() * 10) + "px";
+            nightSkyView.appendChild(dot);
+        }
+    }
+
+    toggleLinesBtn.addEventListener("click", () => {
+        nightSkyLinesVisible = !nightSkyLinesVisible;
+        nightSkyView.classList.toggle("lines-visible", nightSkyLinesVisible);
+        toggleLinesBtn.textContent = nightSkyLinesVisible ? "直線を消す" : "直線を表示する";
+    });
 </script>
 
 </body>
