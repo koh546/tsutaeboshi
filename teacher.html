@@ -13,35 +13,42 @@
         background: #0b1020;
         color: white;
         min-height: 100vh;
-        padding: 24px;
+        padding: clamp(12px, 2vw, 32px);
     }
     .page-wrap {
-        max-width: 900px;
+        max-width: min(1800px, 97vw);
         margin: 0 auto;
     }
     h1 {
         margin: 0 0 4px 0;
-        font-size: 28px;
+        font-size: clamp(28px, 3.4vw, 52px);
         color: #ffe066;
     }
+    h2 { font-size: clamp(22px, 2.6vw, 38px); }
+    h3 { font-size: clamp(18px, 2vw, 28px); }
     .subtitle {
         color: #9fb3ff;
         margin-bottom: 24px;
+        font-size: clamp(14px, 1.4vw, 22px);
     }
     .panel {
         background: #111a33;
         border-radius: 12px;
-        padding: 20px 24px;
+        padding: clamp(20px, 2vw, 32px) clamp(24px, 2.4vw, 40px);
         margin-bottom: 20px;
         max-width: 640px;
         margin-left: auto;
         margin-right: auto;
     }
+    /* ゲーム進行中〜発表フェーズは、大画面いっぱいに使うため幅を広めに取る */
+    #sessionPanel, #progressPanel, #presentPanel, #skyPanel {
+        max-width: min(1600px, 95vw);
+    }
     label {
         display: block;
         margin-bottom: 6px;
         color: #9fb3ff;
-        font-size: 14px;
+        font-size: clamp(14px, 1vw, 18px);
     }
     .field {
         margin-bottom: 16px;
@@ -53,15 +60,15 @@
         border: none;
         background: #1c2a55;
         color: white;
-        font-size: 16px;
+        font-size: clamp(16px, 1.1vw, 20px);
     }
     button {
         background: #2b4cff;
         color: white;
         border: none;
         border-radius: 8px;
-        padding: 12px 24px;
-        font-size: 16px;
+        padding: clamp(12px, 1vw, 16px) clamp(24px, 1.8vw, 32px);
+        font-size: clamp(16px, 1.3vw, 22px);
         cursor: pointer;
     }
     button:hover { background: #1a35cc; }
@@ -134,11 +141,10 @@
 
     #presentPanel {
         display: none;
-        max-width: 900px;
     }
     .present-progress {
         color: #9fb3ff;
-        font-size: 14px;
+        font-size: clamp(14px, 1.3vw, 20px);
         margin-bottom: 10px;
     }
     #constellationView {
@@ -166,10 +172,10 @@
     .hint-answer-box {
         background: #1c2a55;
         border-radius: 8px;
-        padding: 12px 16px;
+        padding: 14px 18px;
         margin-bottom: 16px;
         min-height: 24px;
-        font-size: 18px;
+        font-size: clamp(18px, 1.9vw, 30px);
     }
     #answerText { color: #6bffb0; font-weight: bold; }
     .za-suffix { font-size: 0.82em; }
@@ -182,7 +188,7 @@
     .star-gauge {
         color: #ffe066;
         font-weight: bold;
-        font-size: 16px;
+        font-size: clamp(16px, 1.5vw, 24px);
         margin-bottom: 10px;
     }
 
@@ -199,8 +205,8 @@
         gap: 8px;
         background: #26315c;
         border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 16px;
+        padding: 8px 14px;
+        font-size: clamp(16px, 1.7vw, 26px);
     }
     .choice-chip .choice-label {
         color: #ffe066;
@@ -208,7 +214,7 @@
     }
     .choice-chip a {
         color: #9fb3ff;
-        font-size: 13px;
+        font-size: 0.7em;
         text-decoration: none;
         border-bottom: 1px dotted #9fb3ff;
     }
@@ -223,22 +229,23 @@
         flex-wrap: wrap;
         background: #161f3d;
         border-radius: 8px;
-        padding: 8px 10px;
+        padding: 10px 12px;
         margin-bottom: 8px;
     }
     .answerer-name {
         min-width: 84px;
         font-weight: bold;
         color: white;
+        font-size: clamp(15px, 1.5vw, 22px);
     }
     .answerer-choice-btn {
         background: #26315c;
         border: 2px solid transparent;
         border-radius: 6px;
-        padding: 6px 12px;
+        padding: 8px 14px;
         color: white;
         cursor: pointer;
-        font-size: 15px;
+        font-size: clamp(15px, 1.4vw, 20px);
     }
     .answerer-choice-btn.selected {
         border-color: #ffe066;
@@ -264,7 +271,7 @@
 
     /* 出題者の名前（最初から表示） */
     .presenter-name {
-        font-size: 20px;
+        font-size: clamp(20px, 2.2vw, 34px);
         font-weight: bold;
         color: #ffe066;
         margin-bottom: 8px;
@@ -274,11 +281,11 @@
     /* 欠けた星の進捗ビジュアル（星のかけらを集めるほど星が満ちていく） */
     .star-progress-wrap {
         position: relative;
-        width: 56px;
-        height: 56px;
+        width: clamp(56px, 6vw, 100px);
+        height: clamp(56px, 6vw, 100px);
         margin: 0 auto 8px auto;
-        font-size: 52px;
-        line-height: 56px;
+        font-size: clamp(52px, 5.6vw, 94px);
+        line-height: clamp(56px, 6vw, 100px);
         text-align: center;
     }
     .star-progress-bg, .star-progress-fill {
@@ -358,11 +365,11 @@
     }
 
     /* みんなの夜空（開始前・フィナーレ共通） */
-    #skyPanel { max-width: 900px; text-align: center; }
+    #skyPanel { text-align: center; }
     .sky-panel-lead { color: #9fb3ff; margin-bottom: 4px; }
 
     #progressTimerDisplay:empty { display: none; }
-    #skyPanel { display: none; padding: 20px; }
+    #skyPanel { display: none; }
 
     /* みんなの星空（フィナーレ画面） */
     #nightSkyView {
@@ -398,25 +405,51 @@
     #toggleLinesBtn { background: #3a4166; }
     #toggleLinesBtn:hover { background: #2c3150; }
 
-    /* フィナーレで流れる、完成した星・星のかけらの流れ星演出 */
+    /* フィナーレで流れる、完成した星・星のかけらの流れ星演出（願い事を叶えたくなるような、きらめきながら流れる演出） */
     .shooting-star {
         position: absolute;
         opacity: 0;
         white-space: nowrap;
         pointer-events: none;
-        animation: shootAcross 2.2s ease-in forwards;
         font-size: 20px;
-        filter: drop-shadow(0 0 6px rgba(255, 224, 102, 0.8));
+        animation: shootAcross 3.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
+                   shootTwinkle 0.45s ease-in-out infinite;
+    }
+    .shooting-star::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: 100%;
+        width: 150px;
+        height: 3px;
+        background: linear-gradient(90deg,
+            rgba(255, 246, 214, 0) 0%,
+            rgba(255, 236, 190, 0.55) 55%,
+            rgba(255, 250, 235, 0.95) 100%);
+        transform: translateY(-50%);
+        border-radius: 3px;
     }
     .shooting-star.big {
-        font-size: 38px;
-        filter: drop-shadow(0 0 14px rgba(255, 242, 176, 0.95));
+        font-size: 40px;
+    }
+    .shooting-star.big::before {
+        width: 260px;
+        height: 5px;
     }
     @keyframes shootAcross {
-        0% { transform: translate(0, 0) rotate(-35deg); opacity: 0; }
-        8% { opacity: 1; }
-        85% { opacity: 1; }
-        100% { transform: translate(-320px, 260px) rotate(-35deg); opacity: 0; }
+        0%   { transform: translate(0, 0) rotate(-35deg) scale(0.7); opacity: 0; }
+        8%   { opacity: 1; }
+        88%  { opacity: 1; }
+        100% { transform: translate(-420px, 320px) rotate(-35deg) scale(1.05); opacity: 0; }
+    }
+    /* 星がキラキラ瞬くように、光の強さを細かく揺らす */
+    @keyframes shootTwinkle {
+        0%, 100% {
+            filter: drop-shadow(0 0 6px rgba(255, 246, 214, 0.9)) drop-shadow(0 0 16px rgba(255, 214, 120, 0.65));
+        }
+        50% {
+            filter: drop-shadow(0 0 12px rgba(255, 252, 235, 1)) drop-shadow(0 0 26px rgba(255, 224, 140, 0.9));
+        }
     }
 
     /* 星が完成した時のお祝いモーダル */
@@ -554,7 +587,7 @@
     <div id="skyPanelFinished" style="display:none;">
         <h2 style="color:#ffe066;">全員の発表が終わりました！</h2>
         <p class="sky-panel-lead">おつかれさまでした。</p>
-        <p id="finalStarMessage" style="font-size:20px; color:#ffe066; font-weight:bold; margin-top:16px;"></p>
+        <p id="finalStarMessage" style="font-size:clamp(20px, 2vw, 30px); color:#ffe066; font-weight:bold; margin-top:16px;"></p>
         <h3 style="color:#9fb3ff; margin-top:24px; margin-bottom:0;">🌌 みんなの星空</h3>
     </div>
     <div id="nightSkyView"></div>
@@ -1186,11 +1219,24 @@
         return `きれいな星が${count}個できた！\nみんなの力の結晶だね、すごい！`;
     }
 
+    let starCelebrationAutoCloseTimer = null;
+
     function showStarCelebration(count){
         starCelebrationMessage.textContent = getStarCelebrationText(count);
         starCelebrationOverlay.style.display = "flex";
+
+        // 数秒後に自動で閉じる（その間に手動で閉じた場合は下のクリックハンドラでタイマーを解除する）
+        if(starCelebrationAutoCloseTimer) clearTimeout(starCelebrationAutoCloseTimer);
+        starCelebrationAutoCloseTimer = setTimeout(() => {
+            starCelebrationOverlay.style.display = "none";
+            starCelebrationAutoCloseTimer = null;
+        }, 4000);
     }
     starCelebrationCloseBtn.addEventListener("click", () => {
+        if(starCelebrationAutoCloseTimer){
+            clearTimeout(starCelebrationAutoCloseTimer);
+            starCelebrationAutoCloseTimer = null;
+        }
         starCelebrationOverlay.style.display = "none";
     });
 
@@ -1564,16 +1610,16 @@
             el.style.animationDelay = extraDelay + "ms";
             container.appendChild(el);
             // アニメーション終了後は要素を片付ける
-            setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, extraDelay + 2600);
+            setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, extraDelay + 3600);
         }
 
         for(let i = 0; i < bigCount; i++){
             spawn(true, delay);
-            delay += 750;
+            delay += 850;
         }
         for(let i = 0; i < smallCount; i++){
             spawn(false, delay);
-            delay += 260;
+            delay += 300;
         }
     }
 </script>
