@@ -978,15 +978,15 @@
 
     function attachRotateHandle(handle, piece){
         let dragging = false;
-        let startX = 0;
+        let centerX = 0, centerY = 0;
+        let startPointerAngle = 0;
         let startAngle = 0;
         let preDragSnapshot = null;
         let historyPushed = false;
-        const degreesPerPixel = 0.7;
 
-        function pointX(e){
-            if(e.touches && e.touches.length > 0) return e.touches[0].clientX;
-            return e.clientX;
+        function pointXY(e){
+            if(e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
         }
 
         function applyAngle(angle){
@@ -1003,7 +1003,16 @@
             rotateHandleDragging = true;
             historyPushed = false;
             preDragSnapshot = snapshotState();
-            startX = pointX(e);
+
+            // パーツの中心座標を基準に、ドラッグ開始位置の角度を求めておく。
+            // これにより、左右だけでなく上下や斜め方向のドラッグでも、
+            // 指（ポインタ）の位置に合わせて自然に回転させられる。
+            const rect = piece.getBoundingClientRect();
+            centerX = rect.left + rect.width / 2;
+            centerY = rect.top + rect.height / 2;
+
+            const { x, y } = pointXY(e);
+            startPointerAngle = Math.atan2(y - centerY, x - centerX) * 180 / Math.PI;
             startAngle = parseFloat(piece.dataset.angle);
             setSelected(piece);
         }
@@ -1016,8 +1025,10 @@
                 undoBtn.disabled = false;
                 historyPushed = true;
             }
-            const dx = pointX(e) - startX;
-            applyAngle(startAngle + dx * degreesPerPixel);
+            const { x, y } = pointXY(e);
+            const currentPointerAngle = Math.atan2(y - centerY, x - centerX) * 180 / Math.PI;
+            const deltaAngle = currentPointerAngle - startPointerAngle;
+            applyAngle(startAngle + deltaAngle);
         }
 
         function end(e){
