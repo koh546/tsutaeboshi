@@ -1383,10 +1383,17 @@
     noHintCorrectBtn.addEventListener("click", () => {
         if(!currentPresentedParticipant) return;
         revealAnswerCore();
-        // ヒントなし正解は、今回答える人（全員）が正解したものとして正解率に反映する
-        const guessers = getGuesserCount();
-        totalCorrectAnswers += guessers;
-        totalPossibleAnswers += guessers;
+
+        if(isDemoMode){
+            // デモでは答える人がいないため、ノーヒント正解を押したら正解率40%として流れ星の量を再現する
+            totalCorrectAnswers = 2;
+            totalPossibleAnswers = 5;
+        } else {
+            // ヒントなし正解は、今回答える人（全員）が正解したものとして正解率に反映する
+            const guessers = getGuesserCount();
+            totalCorrectAnswers += guessers;
+            totalPossibleAnswers += guessers;
+        }
 
         const bonusNote = document.createElement("div");
         bonusNote.style.marginTop = "10px";
