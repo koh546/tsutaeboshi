@@ -426,6 +426,45 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // ===== ふりがな表示用ヘルパー（teacher.html と同じロジック） =====
+    function escapeHtml(str){
+        return String(str).replace(/[&<>"']/g, ch => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[ch]));
+    }
+    // カタカナをひらがなに変換する（テキストと読みの位置合わせに使う）
+    function kataToHira(str){
+        return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+    }
+    // text（例:「たこ焼き」）と reading（例:「たこやき」）を比較し、
+    // 前後のひらがな・カタカナが一致する部分を除いた「漢字部分」とその読みを取り出す
+    function splitKanjiRun(text, reading){
+        const normText = kataToHira(text);
+        let prefixLen = 0;
+        while(prefixLen < normText.length && prefixLen < reading.length &&
+              normText[prefixLen] === reading[prefixLen]){
+            prefixLen++;
+        }
+        let suffixLen = 0;
+        while(suffixLen < normText.length - prefixLen && suffixLen < reading.length - prefixLen &&
+              normText[normText.length - 1 - suffixLen] === reading[reading.length - 1 - suffixLen]){
+            suffixLen++;
+        }
+        return {
+            prefix: text.slice(0, prefixLen),
+            kanji: text.slice(prefixLen, text.length - suffixLen),
+            kanjiReading: reading.slice(prefixLen, reading.length - suffixLen),
+            suffix: text.slice(text.length - suffixLen)
+        };
+    }
+    // お題の単語をふりがな付きHTMLに変換する（読みが無い＝漢字を含まない場合はそのままの文字列）
+    function buildFuriganaHtml(text, reading){
+        if(!reading) return escapeHtml(text);
+        const { prefix, kanji, kanjiReading, suffix } = splitKanjiRun(text, reading);
+        if(!kanji) return escapeHtml(text);
+        return `${escapeHtml(prefix)}<ruby>${escapeHtml(kanji)}<rt>${escapeHtml(kanjiReading)}</rt></ruby>${escapeHtml(suffix)}`;
+    }
+
     // ===== 画面要素 =====
     const cardWrapper = document.getElementById("cardWrapper");
     const loadingScreen = document.getElementById("loadingScreen");
@@ -444,6 +483,7 @@
 
     let myParticipantId = null;
     let assignedTheme = null;
+    let assignedThemeReading = null;
     let themeScreenShown = false;
 
     function showOnly(el){
@@ -461,7 +501,26 @@
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session");
 
-    if(!sessionId){
+    // ===== デモモード（教員画面から「デモンストレーションを行う」で開いた場合） =====
+    // Firestoreを使わず、教員画面からURLパラメータで渡されたお題をそのまま使う。
+    // 提出時はFirestoreに書き込まず、親ウィンドウ（教員画面）にpostMessageで結果を伝える。
+    const DEMO_MODE = params.get("demo") === "1";
+
+    if(DEMO_MODE){
+        const demoTheme = params.get("theme") || "";
+        const demoThemeReading = params.get("themeReading") || null;
+        const demoMaxPieces = parseInt(params.get("maxPieces")) || 30;
+        assignedTheme = demoTheme;
+        assignedThemeReading = demoThemeReading;
+        themeScreenShown = true;
+        themeText.innerHTML = buildFuriganaHtml(demoTheme, demoThemeReading);
+        showOnly(themeScreen);
+
+        startCreatingBtn.addEventListener("click", () => {
+            // デモでは時間制限を気にせず自由に描いてもらえるよう、十分に長い制限時間にしておく
+            enterCreationScreen(demoTheme, demoThemeReading, demoMaxPieces, 3600, Date.now());
+        });
+    } else if(!sessionId){
         showError("セッションIDが見つかりません。先生に表示してもらったQRコードから、もう一度読み込んでください。");
     } else {
         init(sessionId);
@@ -550,7 +609,8 @@
             if(data.theme && !themeScreenShown){
                 themeScreenShown = true;
                 assignedTheme = data.theme;
-                themeText.textContent = data.theme;
+                assignedThemeReading = data.themeReading || null;
+                themeText.innerHTML = buildFuriganaHtml(data.theme, assignedThemeReading);
                 showOnly(themeScreen);
             }
         }, (err) => {
@@ -559,6 +619,7 @@
     }
 
     startCreatingBtn.addEventListener("click", async () => {
+        if(DEMO_MODE) return; // デモモードは別のリスナーで処理済み
         startCreatingBtn.disabled = true;
         startCreatingBtn.textContent = "じゅんびちゅう…";
         try {
@@ -567,7 +628,7 @@
             const maxPieces = sdata.maxPieces || 30;
             const timeLimitSec = sdata.timeLimitSec || 600;
             const startedAtMillis = sdata.startedAt ? sdata.startedAt.toMillis() : Date.now();
-            enterCreationScreen(assignedTheme, maxPieces, timeLimitSec, startedAtMillis);
+            enterCreationScreen(assignedTheme, assignedThemeReading, maxPieces, timeLimitSec, startedAtMillis);
         } catch(err){
             console.error(err);
             alert("制作画面の準備に失敗しました。通信状況を確認してもう一度お試しください。");
@@ -576,9 +637,9 @@
         }
     });
 
-    function enterCreationScreen(theme, maxPieces, timeLimitSec, startedAtMillis){
+    function enterCreationScreen(theme, themeReading, maxPieces, timeLimitSec, startedAtMillis){
         TOTAL_PIECES = maxPieces;
-        document.getElementById("themeDisplay").textContent = theme;
+        document.getElementById("themeDisplay").innerHTML = buildFuriganaHtml(theme, themeReading);
         cardWrapper.style.display = "none";
         document.body.classList.add("creation-mode");
         creationScreenEl.style.display = "block";
@@ -1251,6 +1312,27 @@
         timeUpOverlay.style.display = "none";
 
         const piecesData = snapshotState();
+
+        if(DEMO_MODE){
+            try {
+                window.parent.postMessage({
+                    type: "tsutaeboshiDemoSubmit",
+                    piecesData,
+                    canvasWidth: canvas.clientWidth,
+                    canvasHeight: canvas.clientHeight
+                }, "*");
+                creationScreenEl.style.display = "none";
+                document.body.classList.remove("creation-mode");
+                cardWrapper.style.display = "flex";
+                showOnly(submittedScreen);
+            } catch(err){
+                console.error(err);
+                alert("デモの送信に失敗しました。");
+                alreadySubmitted = false;
+            }
+            return;
+        }
+
         try {
             await updateDoc(doc(db, "sessions", sessionId, "participants", myParticipantId), {
                 piecesData,

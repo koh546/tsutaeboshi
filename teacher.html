@@ -184,14 +184,6 @@
         color: #cdd7ff;
     }
 
-    /* 星のかけらゲージ */
-    .star-gauge {
-        color: #ffe066;
-        font-weight: bold;
-        font-size: clamp(16px, 1.5vw, 24px);
-        margin-bottom: 10px;
-    }
-
     /* ４択の一覧（正解＋３つ、画像検索リンク付き） */
     .choice-list {
         display: flex;
@@ -277,32 +269,6 @@
         margin-bottom: 8px;
         text-align: center;
     }
-
-    /* 欠けた星の進捗ビジュアル（星のかけらを集めるほど星が満ちていく） */
-    .star-progress-wrap {
-        position: relative;
-        width: clamp(56px, 6vw, 100px);
-        height: clamp(56px, 6vw, 100px);
-        margin: 0 auto 8px auto;
-        font-size: clamp(52px, 5.6vw, 94px);
-        line-height: clamp(56px, 6vw, 100px);
-        text-align: center;
-    }
-    .star-progress-bg, .star-progress-fill {
-        position: absolute;
-        inset: 0;
-    }
-    .star-progress-bg {
-        color: #263257;
-    }
-    .star-progress-fill {
-        color: #ffe066;
-        text-shadow: 0 0 12px rgba(255, 224, 102, 0.85);
-        overflow: hidden;
-        clip-path: inset(100% 0 0 0);
-        transition: clip-path 0.5s ease;
-    }
-    .star-gauge { text-align: center; }
 
     /* ４択チップの下に、誰がそれを選んだかを表示するタグ */
     .choice-chip { flex-direction: column; align-items: flex-start; }
@@ -405,36 +371,30 @@
     #toggleLinesBtn { background: #3a4166; }
     #toggleLinesBtn:hover { background: #2c3150; }
 
-    /* フィナーレで流れる、完成した星・星のかけらの流れ星演出（願い事を叶えたくなるような、きらめきながら流れる演出） */
+    /* フィナーレで流れる、正解した数に応じた流れ星の演出（願い事を叶えたくなるような、きらめきながら流れる演出） */
     .shooting-star {
         position: absolute;
         opacity: 0;
         white-space: nowrap;
         pointer-events: none;
-        font-size: 20px;
+        font-size: 26px;
         animation: shootAcross 3.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
                    shootTwinkle 0.45s ease-in-out infinite;
     }
+    /* しっぽ（光の尾）は、星が飛んできた方向＝進行方向と逆側に伸ばす */
     .shooting-star::before {
         content: "";
         position: absolute;
         top: 50%;
-        right: 100%;
-        width: 150px;
+        left: 100%;
+        width: 170px;
         height: 3px;
         background: linear-gradient(90deg,
-            rgba(255, 246, 214, 0) 0%,
-            rgba(255, 236, 190, 0.55) 55%,
-            rgba(255, 250, 235, 0.95) 100%);
+            rgba(255, 250, 235, 0.95) 0%,
+            rgba(255, 236, 190, 0.5) 55%,
+            rgba(255, 246, 214, 0) 100%);
         transform: translateY(-50%);
         border-radius: 3px;
-    }
-    .shooting-star.big {
-        font-size: 40px;
-    }
-    .shooting-star.big::before {
-        width: 260px;
-        height: 5px;
     }
     @keyframes shootAcross {
         0%   { transform: translate(0, 0) rotate(-35deg) scale(0.7); opacity: 0; }
@@ -450,34 +410,6 @@
         50% {
             filter: drop-shadow(0 0 12px rgba(255, 252, 235, 1)) drop-shadow(0 0 26px rgba(255, 224, 140, 0.9));
         }
-    }
-
-    /* 星が完成した時のお祝いモーダル */
-    #starCelebrationOverlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.65);
-        z-index: 1000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-    }
-    #starCelebrationPopup {
-        background: #111a33;
-        border: 1px solid #ffe066;
-        border-radius: 14px;
-        padding: 28px;
-        max-width: 340px;
-        width: 85%;
-        text-align: center;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.6);
-    }
-    #starCelebrationPopup p {
-        font-size: 18px;
-        color: #ffe066;
-        font-weight: bold;
-        line-height: 1.6;
-        margin: 12px 0 20px 0;
     }
 </style>
 </head>
@@ -513,6 +445,18 @@
         <input type="number" id="maxPiecesInput" value="30" min="1">
     </div>
     <button id="createSessionBtn">セッションを作成する</button>
+    <button id="startDemoBtn" style="margin-top:10px; background:#3a4166;">🖊 デモンストレーションを行う</button>
+    <p style="color:#9fb3ff; font-size:13px; margin-top:8px;">
+        選んだジャンルのお題で、先生自身が星座を描いて、生徒に描き方や画面の流れを説明できます（セッションは作られません）。
+    </p>
+</div>
+
+<!-- デモンストレーション画面（生徒用の制作画面をそのまま表示する） -->
+<div class="panel" id="demoPanel" style="display:none; padding:0; max-width:none; width:100%; position:relative;">
+    <div style="position:absolute; top:10px; right:10px; z-index:20;">
+        <button id="exitDemoBtn" style="background:#5a3030;">✕ デモを終了する</button>
+    </div>
+    <iframe id="demoFrame" src="about:blank" style="width:100%; height:92vh; border:none; display:block; background:#0b1128;"></iframe>
 </div>
 
 <!-- セッション作成後の表示 -->
@@ -559,11 +503,6 @@
 <div class="panel" id="presentPanel">
     <div class="present-progress" id="presentProgress"></div>
     <div class="presenter-name" id="presenterNameDisplay"></div>
-    <div class="star-progress-wrap">
-        <div class="star-progress-bg">★</div>
-        <div class="star-progress-fill" id="starProgressFill">★</div>
-    </div>
-    <div class="star-gauge" id="starGaugeText"></div>
     <div id="constellationView"></div>
 
     <div class="present-controls" id="presentControlsMain">
@@ -589,6 +528,8 @@
     <div id="skyPanelIntro">
         <h2 style="color:#ffe066;">🌌 まずは、みんなの夜空を見てみよう</h2>
         <p class="sky-panel-lead">みんなの星座が集まって、ひとつの夜空になりました。</p>
+        <p class="sky-panel-lead" style="margin-top:4px;">みんなの星座を当てよう</p>
+        <p class="sky-panel-lead" style="margin-top:2px;">当てた数に応じて、流れ星が流れるよ</p>
     </div>
     <div id="skyPanelFinished" style="display:none;">
         <h2 style="color:#ffe066;">全員の発表が終わりました！</h2>
@@ -600,15 +541,7 @@
     <div class="present-controls" style="justify-content:center;">
         <button id="toggleLinesBtn" style="display:none;">直線を表示する</button>
         <button id="startQuizFromSkyBtn">それぞれの星座を当てていくよ ▶</button>
-    </div>
-</div>
-
-<!-- 星が完成した時のお祝い表示 -->
-<div id="starCelebrationOverlay">
-    <div id="starCelebrationPopup">
-        <div style="font-size:56px; line-height:1;">🌟</div>
-        <p id="starCelebrationMessage"></p>
-        <button id="starCelebrationCloseBtn">とじる</button>
+        <button id="exitDemoFromSkyBtn" style="display:none; background:#5a3030;">✕ デモを終了する</button>
     </div>
 </div>
 
@@ -741,6 +674,11 @@
     }
 
     const setupPanel = document.getElementById("setupPanel");
+    const startDemoBtn = document.getElementById("startDemoBtn");
+    const demoPanel = document.getElementById("demoPanel");
+    const demoFrame = document.getElementById("demoFrame");
+    const exitDemoBtn = document.getElementById("exitDemoBtn");
+    const exitDemoFromSkyBtn = document.getElementById("exitDemoFromSkyBtn");
     const sessionPanel = document.getElementById("sessionPanel");
     const progressPanel = document.getElementById("progressPanel");
     const progressList = document.getElementById("progressList");
@@ -754,8 +692,6 @@
     const toggleLinesBtn = document.getElementById("toggleLinesBtn");
     const presentProgress = document.getElementById("presentProgress");
     const presenterNameDisplay = document.getElementById("presenterNameDisplay");
-    const starGaugeText = document.getElementById("starGaugeText");
-    const starProgressFill = document.getElementById("starProgressFill");
     const constellationView = document.getElementById("constellationView");
     const hintAnswerBox = document.getElementById("hintAnswerBox");
     const answerText = document.getElementById("answerText");
@@ -767,9 +703,6 @@
     const answererList = document.getElementById("answererList");
     const answerBtn = document.getElementById("answerBtn");
     const nextBtn = document.getElementById("nextBtn");
-    const starCelebrationOverlay = document.getElementById("starCelebrationOverlay");
-    const starCelebrationMessage = document.getElementById("starCelebrationMessage");
-    const starCelebrationCloseBtn = document.getElementById("starCelebrationCloseBtn");
     const createSessionBtn = document.getElementById("createSessionBtn");
     const startGameBtn = document.getElementById("startGameBtn");
     const participantList = document.getElementById("participantList");
@@ -786,6 +719,77 @@
     let sessionTimeLimitSec = null;
     let sessionStartedAtMillis = null;
     let progressCountdownInterval = null;
+
+    // ===== デモンストレーション（先生自身が描いて、生徒に説明するための機能） =====
+    // セッションを作らず、student.html を ?demo=1 付きのiframeで開いて描いてもらい、
+    // 提出結果をpostMessageで受け取って、通常のクイズ・夜空フローにそのまま乗せる。
+    let isDemoMode = false;
+    let demoTheme = null;
+    let demoThemeReading = null;
+
+    startDemoBtn.addEventListener("click", () => {
+        const genre = document.getElementById("genreInput").value;
+        const pool = GENRE_THEMES[genre] || [];
+        if(pool.length === 0){
+            alert("このジャンルには、まだお題が登録されていません。");
+            return;
+        }
+        const entry = pool[Math.floor(Math.random() * pool.length)];
+        demoTheme = themeText(entry);
+        demoThemeReading = THEME_READINGS[demoTheme] || "";
+        const maxPieces = parseInt(document.getElementById("maxPiecesInput").value) || 30;
+
+        currentSessionGenre = genre;
+        isDemoMode = true;
+
+        const demoUrl = new URL("student.html", window.location.href);
+        demoUrl.searchParams.set("demo", "1");
+        demoUrl.searchParams.set("theme", demoTheme);
+        demoUrl.searchParams.set("themeReading", demoThemeReading);
+        demoUrl.searchParams.set("maxPieces", String(maxPieces));
+
+        demoFrame.src = demoUrl.href;
+        setupPanel.style.display = "none";
+        demoPanel.style.display = "block";
+    });
+
+    function exitDemo(){
+        isDemoMode = false;
+        demoFrame.src = "about:blank";
+        demoPanel.style.display = "none";
+        skyPanel.style.display = "none";
+        presentPanel.style.display = "none";
+        stopShootingStarStream();
+        setupPanel.style.display = "block";
+    }
+    exitDemoBtn.addEventListener("click", exitDemo);
+    exitDemoFromSkyBtn.addEventListener("click", exitDemo);
+
+    // student.html（デモ用iframe）から提出結果を受け取り、参加者が１人だけの「見本」として
+    // 通常のみんなの夜空・クイズ画面の流れにそのまま乗せる
+    window.addEventListener("message", (event) => {
+        if(!event.data || event.data.type !== "tsutaeboshiDemoSubmit" || !isDemoMode) return;
+
+        const demoParticipant = {
+            id: "demo",
+            name: "せんせいの見本",
+            guessOnly: false,
+            theme: demoTheme,
+            themeReading: demoThemeReading,
+            piecesData: event.data.piecesData,
+            canvasWidth: event.data.canvasWidth,
+            canvasHeight: event.data.canvasHeight
+        };
+
+        currentParticipants = [demoParticipant];
+        presentationQueue = [demoParticipant];
+        presentationIndex = 0;
+        totalCorrectAnswers = 0;
+        totalPossibleAnswers = 0;
+
+        demoPanel.style.display = "none";
+        showSkyPanel("opening");
+    });
 
     function listenSession(sessionId){
         onSnapshot(doc(db, "sessions", sessionId), (snap) => {
@@ -1047,7 +1051,8 @@
             const batch = writeBatch(db);
             assignments.forEach(a => {
                 const pRef = doc(db, "sessions", currentSessionId, "participants", a.participantId);
-                batch.update(pRef, { theme: a.theme });
+                // 生徒側でもふりがなを表示できるよう、読み方（漢字を含まない場合はnull）も一緒に保存する
+                batch.update(pRef, { theme: a.theme, themeReading: THEME_READINGS[a.theme] || null });
             });
             const sessionRef = doc(db, "sessions", currentSessionId);
             batch.update(sessionRef, { status: "creating", startedAt: serverTimestamp() });
@@ -1093,26 +1098,10 @@
     let presentationQueue = [];
     let presentationIndex = 0;
     let currentPresentedParticipant = null;
-    // 星のかけら（正解した人数などに応じて集まる）。星座ごとにリセットせず、発表フェーズ全体で累積する
-    let starFragments = 0;
-    let completedStars = 0;
-    const MIN_FRAGMENTS_PER_STAR = 3; // 予想する人数が少ない時でも簡単になりすぎないよう最低ライン
-
-    // 星１個の完成に必要なかけら数は固定ではなく、「提出された星座の数」と「毎回の予想人数」に応じて変える
-    // （出題者以外の全員＝毎回の予想人数。予想だけ参加の人も含む）
-    function getGuesserCount(){
-        if(!currentPresentedParticipant) return Math.max(0, currentParticipants.length - 1);
-        return currentParticipants.filter(p => p.id !== currentPresentedParticipant.id).length;
-    }
-    // 「通常の最大」＝ 提出星座の数 × 毎回の予想人数（＝４択で全員が正解した場合に得られるかけらの総数）
-    function getNormalMaxFragments(){
-        return presentationQueue.length * getGuesserCount();
-    }
-    // 星１個に必要なかけら数は、「通常の最大」の半分を基準にする
-    // （ノーヒント正解のボーナスがあるため、実際にはこれを超えて集まることもある）
-    function getFragmentsPerStar(){
-        return Math.max(MIN_FRAGMENTS_PER_STAR, Math.round(getNormalMaxFragments() / 2));
-    }
+    // 正解率 = 正解した数 ÷ (出題数 × 答える人数) の分子・分母。フィナーレの流れ星のペースはこれに応じて決まる
+    // ノーヒント正解は、その回の答える人（全員）が正解したものとして扱う
+    let totalCorrectAnswers = 0;
+    let totalPossibleAnswers = 0;
 
     // 現在の４択クイズの状態
     let currentChoices = [];
@@ -1120,12 +1109,18 @@
     let answererSelections = {}; // participantId -> 選んだ選択肢のindex
     let quizRevealed = false;
 
+    // 今回の発表で「答える人」の数（出題者本人を除いた参加者数。予想だけ参加の人も含む）
+    function getGuesserCount(){
+        if(!currentPresentedParticipant) return Math.max(0, currentParticipants.length - 1);
+        return currentParticipants.filter(p => p.id !== currentPresentedParticipant.id).length;
+    }
+
     startPresentBtn.addEventListener("click", () => {
         // 「予想だけ参加」の人は発表（出題）せず、星座を作った人だけが順番に発表する
         presentationQueue = shuffle(currentParticipants.filter(p => !p.guessOnly));
         presentationIndex = 0;
-        starFragments = 0;
-        completedStars = 0;
+        totalCorrectAnswers = 0;
+        totalPossibleAnswers = 0;
         progressPanel.style.display = "none";
         // まずは「みんなの夜空」をひとつの画面としてお披露目してから、星座当てクイズに入る
         showSkyPanel("opening");
@@ -1137,6 +1132,12 @@
         showNextConstellation();
     });
 
+    // 正解率（0〜1）。分母が0（まだ誰も答えていない）場合は0とする
+    function getAccuracyRate(){
+        if(totalPossibleAnswers <= 0) return 0;
+        return Math.min(1, totalCorrectAnswers / totalPossibleAnswers);
+    }
+
     // みんなの夜空パネルを表示する。mode: "opening"（クイズ開始前のお披露目）/ "finale"（全問終了後の締めくくり）
     function showSkyPanel(mode){
         presentPanel.style.display = "none";
@@ -1147,13 +1148,15 @@
         skyPanelFinished.style.display = isOpening ? "none" : "block";
         startQuizFromSkyBtn.style.display = isOpening ? "inline-block" : "none";
         toggleLinesBtn.style.display = isOpening ? "none" : "inline-block";
+        exitDemoFromSkyBtn.style.display = isDemoMode ? "inline-block" : "none";
 
         renderNightSky();
 
+        stopShootingStarStream();
         if(!isOpening){
-            document.getElementById("finalStarMessage").textContent = getFinalStarMessage();
-            // 完成した大きな星・集めた星のかけらを、流れ星のようにみんなの夜空へ流す
-            addShootingStars(nightSkyView, completedStars, starFragments);
+            document.getElementById("finalStarMessage").textContent = getFinalResultMessage();
+            // 正解率に応じたペースで、流れ星をみんなの夜空へ流し続ける（正解率が高いほど、たくさん流れる）
+            startShootingStarStream(nightSkyView);
         }
     }
 
@@ -1185,7 +1188,6 @@
         showChoicesBtn.disabled = false;
         answerBtn.style.display = "inline-block";
 
-        updateStarGaugeDisplay();
         renderConstellation(currentPresentedParticipant);
     }
 
@@ -1224,70 +1226,16 @@
         return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(word)}`;
     }
 
-    // 星のかけらを加算し、しきい値を超えたら「きれいな星」完成のお祝いを出す
-    function addFragments(n){
-        if(n <= 0) return;
-        starFragments += n;
-        const perStar = getFragmentsPerStar();
-        const newCompleted = Math.floor(starFragments / perStar);
-        if(newCompleted > completedStars){
-            completedStars = newCompleted;
-            showStarCelebration(completedStars);
-        }
-        updateStarGaugeDisplay();
-    }
-
-    function updateStarGaugeDisplay(){
-        const perStar = getFragmentsPerStar();
-        const inCurrent = starFragments % perStar;
-        starGaugeText.textContent = `✨ 星のかけら ${inCurrent} / ${perStar}　（きれいな星：${completedStars}個）`;
-
-        const pct = perStar > 0 ? Math.min(100, Math.round((inCurrent / perStar) * 100)) : 0;
-        if(starProgressFill){
-            starProgressFill.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
-        }
-    }
-
-    function getStarCelebrationText(count){
-        if(count === 1) return "きれいな星が完成！\nおめでとう！";
-        if(count === 2) return "きれいな星が２個できた！\nさらにおめでとう！";
-        if(count === 3) return "きれいな星が３個できた！\nさらにさらにおめでとう！";
-        return `きれいな星が${count}個できた！\nみんなの力の結晶だね、すごい！`;
-    }
-
-    let starCelebrationAutoCloseTimer = null;
-
-    function showStarCelebration(count){
-        starCelebrationMessage.textContent = getStarCelebrationText(count);
-        starCelebrationOverlay.style.display = "flex";
-
-        // 数秒後に自動で閉じる（その間に手動で閉じた場合は下のクリックハンドラでタイマーを解除する）
-        if(starCelebrationAutoCloseTimer) clearTimeout(starCelebrationAutoCloseTimer);
-        starCelebrationAutoCloseTimer = setTimeout(() => {
-            starCelebrationOverlay.style.display = "none";
-            starCelebrationAutoCloseTimer = null;
-        }, 4000);
-    }
-    starCelebrationCloseBtn.addEventListener("click", () => {
-        if(starCelebrationAutoCloseTimer){
-            clearTimeout(starCelebrationAutoCloseTimer);
-            starCelebrationAutoCloseTimer = null;
-        }
-        starCelebrationOverlay.style.display = "none";
-    });
-
-    // 発表が全部終わった時の、完成した星の数に応じた前向きなメッセージ
-    function getFinalStarMessage(){
-        if(completedStars <= 0 && starFragments <= 0){
-            return "みんなの発表、おつかれさまでした！次はどんな星が完成するか楽しみだね。";
-        } else if(completedStars === 0){
-            return `星のかけらが${starFragments}個集まりました！あと少しで星が完成しそうだね。`;
-        } else if(completedStars === 1){
-            return "きれいな星が１個完成しました！おめでとう！みんなよくがんばったね。";
-        } else if(completedStars === 2){
-            return "きれいな星が２個も完成しました！さらにおめでとう！最高のチームワークだったね。";
+    // 発表が全部終わった時の、正解した数に応じた前向きなメッセージ
+    function getFinalResultMessage(){
+        if(totalCorrectAnswers <= 0){
+            return "みんなの発表、おつかれさまでした！次はきっとたくさん当てられるよ。";
+        } else if(totalCorrectAnswers <= 2){
+            return `${totalCorrectAnswers}問、正解が生まれました！おめでとう！`;
+        } else if(totalCorrectAnswers <= 5){
+            return `${totalCorrectAnswers}問も正解しました！さらにおめでとう！最高のチームワークだったね。`;
         } else {
-            return `きれいな星が${completedStars}個も完成しました！さらにさらにおめでとう！みんなの力の結晶だね、すごい！`;
+            return `${totalCorrectAnswers}問も正解しました！みんなの力の結晶だね、すごい！`;
         }
     }
 
@@ -1435,15 +1383,16 @@
     noHintCorrectBtn.addEventListener("click", () => {
         if(!currentPresentedParticipant) return;
         revealAnswerCore();
-        // ヒントなし正解のボーナスは「今回の予想人数」分＝星が１個まるまる完成する量にする
-        const bonus = getFragmentsPerStar();
-        addFragments(bonus);
+        // ヒントなし正解は、今回答える人（全員）が正解したものとして正解率に反映する
+        const guessers = getGuesserCount();
+        totalCorrectAnswers += guessers;
+        totalPossibleAnswers += guessers;
 
         const bonusNote = document.createElement("div");
         bonusNote.style.marginTop = "10px";
         bonusNote.style.color = "#c9a6ff";
         bonusNote.style.fontWeight = "bold";
-        bonusNote.textContent = `🌠 ヒントなしで大正解！ 星のかけら +${bonus}！`;
+        bonusNote.textContent = `🌠 ヒントなしで大正解！`;
         answerText.parentElement.appendChild(bonusNote);
 
         presentControlsMain.style.display = "none";
@@ -1501,12 +1450,13 @@
                 }
             });
 
-            if(correctCount > 0) addFragments(correctCount);
+            if(correctCount > 0) totalCorrectAnswers += correctCount;
+            totalPossibleAnswers += answererList.querySelectorAll(".answerer-row").length;
 
             const banner = document.createElement("div");
             if(correctCount > 0){
                 banner.className = "correct-banner";
-                banner.innerHTML = `🎉🌟 大正解！　<span class="names">${correctNames.map(escapeHtml).join("、")}</span> さん、正解！　星のかけら +${correctCount}`;
+                banner.innerHTML = `🎉🌟 大正解！　<span class="names">${correctNames.map(escapeHtml).join("、")}</span> さん、正解！`;
             } else {
                 banner.className = "no-correct-banner";
                 banner.textContent = "今回は正解者なし。次はきっと当たるよ！";
@@ -1629,33 +1579,45 @@
         toggleLinesBtn.textContent = nightSkyLinesVisible ? "直線を消す" : "直線を表示する";
     });
 
-    // フィナーレの夜空に、完成した大きな星と集めた星のかけらを、流れ星のように次々流す
-    // bigCount: 完成した「きれいな星」の数／smallCount: 集めた星のかけらの総数（１個ずつすべて表示する）
-    function addShootingStars(container, bigCount, smallCount){
+    // フィナーレの夜空に、正解率に応じたペースで流れ星を流し続ける
+    // 正解率0%なら20秒に1個、100%なら20秒に10個くらいのペースになるよう調整する
+    let shootingStarIntervalId = null;
+
+    function getShootingStarsPerPeriod(accuracyRate){
+        return 1 + accuracyRate * 9; // 0% -> 1個／20秒、100% -> 10個／20秒
+    }
+
+    function spawnShootingStar(container){
         const rect = container.getBoundingClientRect();
         const W = rect.width || 600;
         const H = rect.height || 400;
-        let delay = 400;
 
-        function spawn(isBig, extraDelay){
-            const el = document.createElement("div");
-            el.className = "shooting-star" + (isBig ? " big" : "");
-            el.textContent = isBig ? "🌟" : "🌠";
-            el.style.left = (W * (0.35 + Math.random() * 0.5)) + "px";
-            el.style.top = (H * (Math.random() * 0.35)) + "px";
-            el.style.animationDelay = extraDelay + "ms";
-            container.appendChild(el);
-            // アニメーション終了後は要素を片付ける
-            setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, extraDelay + 3600);
-        }
+        const el = document.createElement("div");
+        el.className = "shooting-star";
+        el.textContent = "🌠";
+        el.style.left = (W * (0.35 + Math.random() * 0.5)) + "px";
+        el.style.top = (H * (Math.random() * 0.35)) + "px";
+        container.appendChild(el);
+        // アニメーション終了後は要素を片付ける
+        setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 3600);
+    }
 
-        for(let i = 0; i < bigCount; i++){
-            spawn(true, delay);
-            delay += 850;
-        }
-        for(let i = 0; i < smallCount; i++){
-            spawn(false, delay);
-            delay += 300;
+    function startShootingStarStream(container){
+        stopShootingStarStream();
+        const PERIOD_MS = 20000;
+        const perPeriod = getShootingStarsPerPeriod(getAccuracyRate());
+        const intervalMs = PERIOD_MS / perPeriod;
+
+        spawnShootingStar(container); // 最初の1個はすぐに流す
+        shootingStarIntervalId = setInterval(() => {
+            spawnShootingStar(container);
+        }, intervalMs);
+    }
+
+    function stopShootingStarStream(){
+        if(shootingStarIntervalId){
+            clearInterval(shootingStarIntervalId);
+            shootingStarIntervalId = null;
         }
     }
 </script>
