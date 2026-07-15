@@ -1537,10 +1537,21 @@
         const FONT_SIZE = 20;
         const CLUSTER_SCALE = 0.55; // 制作時のキャンバスに対する縮小率
         let totalDots = 0;
+        const placedBoxes = []; // 配置済みの星座の範囲（飾りの星をすき間に置くための目印）
 
-        currentParticipants.forEach(participant => {
-            const pieces = participant.piecesData || [];
-            if(pieces.length === 0) return;
+        const participantsWithPieces = currentParticipants.filter(p => (p.piecesData || []).length > 0);
+
+        // 星座をできるだけばらけさせるため、夜空をマス目に分けてシャッフルし、
+        // 各星座に別々のマスを割り当てる（星座の数がマスより多い場合はランダム配置にフォールバック）
+        const n = participantsWithPieces.length;
+        const cols = Math.max(1, Math.round(Math.sqrt(n * (W / H)) || 1));
+        const rows = Math.max(1, Math.ceil(n / cols));
+        const cellW = W / cols;
+        const cellH = H / rows;
+        const cellIndices = shuffle(Array.from({ length: cols * rows }, (_, i) => i));
+
+        participantsWithPieces.forEach((participant, idx) => {
+            const pieces = participant.piecesData;
 
             // 線の長さも考慮した、このお子さんの星座のバウンディングボックスを求める
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -1555,10 +1566,26 @@
 
             const bboxW = (maxX - minX) * CLUSTER_SCALE;
             const bboxH = (maxY - minY) * CLUSTER_SCALE;
-            const marginX = Math.min(bboxW / 2, W / 2 - 10);
-            const marginY = Math.min(bboxH / 2, H / 2 - 10);
-            const cx = marginX + Math.random() * Math.max(1, W - marginX * 2);
-            const cy = marginY + Math.random() * Math.max(1, H - marginY * 2);
+
+            let cx, cy;
+            if(idx < cellIndices.length){
+                const cell = cellIndices[idx];
+                const col = cell % cols;
+                const row = Math.floor(cell / cols);
+                const cellLeft = col * cellW;
+                const cellTop = row * cellH;
+                const marginX = Math.min(bboxW / 2, cellW / 2 - 8);
+                const marginY = Math.min(bboxH / 2, cellH / 2 - 8);
+                cx = cellLeft + marginX + Math.random() * Math.max(1, cellW - marginX * 2);
+                cy = cellTop + marginY + Math.random() * Math.max(1, cellH - marginY * 2);
+            } else {
+                // マスが足りない場合は、これまで通りランダムに配置する
+                const marginX = Math.min(bboxW / 2, W / 2 - 10);
+                const marginY = Math.min(bboxH / 2, H / 2 - 10);
+                cx = marginX + Math.random() * Math.max(1, W - marginX * 2);
+                cy = marginY + Math.random() * Math.max(1, H - marginY * 2);
+            }
+
             const originCenterX = (minX + maxX) / 2;
             const originCenterY = (minY + maxY) / 2;
 
@@ -1569,18 +1596,35 @@
                 nightSkyView.appendChild(el);
                 totalDots += (pc.type === 'star') ? 1 : 2;
             });
+
+            placedBoxes.push({
+                left: cx - bboxW / 2, right: cx + bboxW / 2,
+                top: cy - bboxH / 2, bottom: cy + bboxH / 2
+            });
         });
 
-        // 星が少ない時は、ランダムな飾りの星を足してリアルな夜空に近づける
-        const TARGET_MIN_STARS = 90;
-        const fillerCount = Math.min(150, Math.max(0, TARGET_MIN_STARS - totalDots));
+        // 画面の広さに応じて、飾りの星の目標数を決める（大画面でもすき間が寂しくならないように）
+        const areaTarget = Math.round((W * H) / 3200);
+        const TARGET_MIN_STARS = Math.min(420, Math.max(110, areaTarget));
+        const fillerCount = Math.max(0, TARGET_MIN_STARS - totalDots);
+
+        // 飾りの星は、できるだけ星座と重ならない「すき間」を優先して配置する
         for(let i = 0; i < fillerCount; i++){
+            let x = Math.random() * W;
+            let y = Math.random() * H;
+            for(let attempt = 0; attempt < 6; attempt++){
+                const overlapping = placedBoxes.some(b =>
+                    x > b.left - 14 && x < b.right + 14 && y > b.top - 14 && y < b.bottom + 14);
+                if(!overlapping) break;
+                x = Math.random() * W;
+                y = Math.random() * H;
+            }
             const dot = document.createElement("span");
             dot.className = "sky-star filler-star";
             dot.textContent = "●";
             dot.style.position = "absolute";
-            dot.style.left = (Math.random() * W) + "px";
-            dot.style.top = (Math.random() * H) + "px";
+            dot.style.left = x + "px";
+            dot.style.top = y + "px";
             dot.style.fontSize = (6 + Math.random() * 10) + "px";
             nightSkyView.appendChild(dot);
         }
